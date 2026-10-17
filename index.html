@@ -1,0 +1,3107 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OmniDraw AI 智創雙模抽獎與核銷系統 | TonyStudio</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Canvas Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <!-- QRCode.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: { 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca' },
+            accent: { 400: '#fbbf24', 500: '#f59e0b' }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
+    body { font-family: 'Inter', 'Noto Sans TC', sans-serif; background-color: #090d16; color: #f8fafc; overflow-x: hidden; }
+    .glass-panel { background: rgba(15, 23, 42, 0.78); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); }
+    .neon-border { box-shadow: 0 0 25px rgba(99, 102, 241, 0.35), inset 0 0 15px rgba(99, 102, 241, 0.15); }
+    .gold-glow { box-shadow: 0 0 30px rgba(245, 158, 11, 0.45); }
+    .slot-window { perspective: 1000px; overflow: hidden; position: relative; }
+    .slot-window::before, .slot-window::after {
+      content: ''; position: absolute; left: 0; right: 0; height: 28px; z-index: 10; pointer-events: none;
+    }
+    .slot-window::before { top: 0; background: linear-gradient(to bottom, #0f172a, transparent); }
+    .slot-window::after { bottom: 0; background: linear-gradient(to top, #0f172a, transparent); }
+    .slot-reel { transition: transform 0.1s linear; will-change: transform; }
+    @keyframes popIn {
+      0% { opacity: 0; transform: scale(0.92) translateY(10px); }
+      100% { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .animate-pop { animation: popIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-indigo-500 selection:text-white">
+
+  <!-- ==================== 0. 會員登入閘門 (SaaS Auth Gate) ==================== -->
+  <div id="authGateOverlay" class="fixed inset-0 z-50 bg-[#070a12] overflow-y-auto flex flex-col justify-between">
+    <!-- 頂部品牌列 -->
+    <div class="w-full border-b border-slate-800/80 bg-slate-950/60 backdrop-blur-md px-6 py-3.5">
+      <div class="max-w-6xl mx-auto flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <img src="https://firebasestorage.googleapis.com/v0/b/k16-tony-ai-wisdom-platform.firebasestorage.app/o/assets%2F6av64EOvvqQNAIoXqcPfHC5BBeF3%2F1785039560457_1.png?alt=media&token=19b27497-4101-4436-bc80-b299741b7984" alt="TonyStudio Logo" onerror="this.src='https://placehold.co/120x120/4f46e5/ffffff?text=TONY'" class="w-10 h-10 rounded-xl object-contain bg-slate-900 p-1 border border-indigo-500/40 shadow-lg">
+          <div>
+            <span class="font-black text-base tracking-wider bg-gradient-to-r from-white via-indigo-200 to-amber-300 bg-clip-text text-transparent">OmniDraw AI 智創雙模抽獎與核銷系統</span>
+            <p class="text-[11px] text-slate-400">TonyStudio 企業級 AI MarTech 互動行銷雲端平台</p>
+          </div>
+        </div>
+        <button onclick="openTonyProfileModal()" class="px-3.5 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-bold flex items-center gap-1.5 transition">
+          <i data-lucide="award" class="w-4 h-4"></i> 平台創作者：TONY 顧問簡介
+        </button>
+      </div>
+    </div>
+
+    <!-- 登入與創作者雙欄主視覺 -->
+    <div class="max-w-6xl w-full mx-auto px-4 py-8 lg:py-12 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center my-auto">
+      
+      <!-- 左欄：平台亮點與 TONY 顧問名片卡 (7 cols) -->
+      <div class="lg:col-span-7 space-y-6">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 text-xs font-bold">
+          <i data-lucide="shield-check" class="w-4 h-4 text-amber-400"></i> SaaS 雲端授權 × 雙重信箱驗證 × RBAC 權限管理
+        </div>
+        <h2 class="text-3xl sm:text-4xl font-black leading-tight text-white">
+          賦能企業活動與尾牙盛典的<br>
+          <span class="bg-gradient-to-r from-indigo-400 via-purple-300 to-amber-300 bg-clip-text text-transparent">AI 雙模抽獎與核銷中樞</span>
+        </h2>
+        <p class="text-sm text-slate-300 leading-relaxed">
+          結合「幸運大轉盤」與「量子霓虹拉霸機」雙視覺引擎、動態庫存防呆權重、Gemini AI 即時氣氛主持賀詞，以及現場 QR 數位核銷閉環，為您的品牌活動創造極致互動體驗。
+        </p>
+
+        <!-- TONY 顧問精選介紹卡 -->
+        <div class="glass-panel rounded-3xl p-5 border border-slate-800/90 flex flex-col sm:flex-row items-center sm:items-start gap-5 relative overflow-hidden">
+          <div class="absolute -right-12 -bottom-12 w-40 h-40 bg-amber-500/10 rounded-full blur-2xl pointer-events-none"></div>
+          <img src="https://firebasestorage.googleapis.com/v0/b/k16-tony-ai-wisdom-platform.firebasestorage.app/o/assets%2F6av64EOvvqQNAIoXqcPfHC5BBeF3%2F1787580326393_ChatGPT%20Image%202026%E5%B9%B46%E6%9C%8819%E6%97%A5%20%E4%B8%8A%E5%8D%8811_16_14.png?alt=media&token=3c85de41-f36f-46e5-a97a-7bc7eb83a027" alt="TONY 楊文澤 老師" onerror="this.src='https://placehold.co/160x160/1e293b/fbbf24?text=TONY'" class="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl object-cover border-2 border-amber-400/60 shadow-xl shrink-0">
+          <div class="space-y-2 text-center sm:text-left flex-1">
+            <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+              <h3 class="text-lg font-black text-white">TONY 楊文澤 老師</h3>
+              <span class="text-[11px] px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold">平台創作者</span>
+            </div>
+            <p class="text-xs text-indigo-300 font-bold">資深數位行銷科技顧問 ｜ 生成式 AI 創作者 ｜ 創業導師</p>
+            <p class="text-xs text-slate-400 leading-relaxed">
+              現任龍華科大數位行銷講師、智策慧品牌行銷科技顧問；曾任脈動心聯創辦人暨執行長、宏碁集團建碁 AOPEN 全球品牌行銷總監。
+            </p>
+            <button onclick="openTonyProfileModal()" class="text-xs text-amber-400 hover:text-amber-300 font-bold inline-flex items-center gap-1 pt-1">
+              查看完整學經歷與授課資歷 <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右欄：會員註冊 / 登入 / 忘記密碼卡片 (5 cols) -->
+      <div class="lg:col-span-5">
+        <div class="glass-panel rounded-3xl p-6 sm:p-8 neon-border space-y-5 relative">
+          <!-- 切換登入/註冊 Tabs -->
+          <div class="grid grid-cols-3 gap-1.5 bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800">
+            <button onclick="switchAuthMode('login')" id="authTab-login" class="py-2 rounded-xl text-xs font-black bg-indigo-600 text-white shadow transition">會員登入</button>
+            <button onclick="switchAuthMode('register')" id="authTab-register" class="py-2 rounded-xl text-xs font-black text-slate-400 hover:text-white transition">註冊新帳號</button>
+            <button onclick="switchAuthMode('forgot')" id="authTab-forgot" class="py-2 rounded-xl text-xs font-black text-slate-400 hover:text-white transition">忘記密碼</button>
+          </div>
+
+          <!-- 動態驗證狀態橫幅 (紅字警告 / 綠字提示) -->
+          <div id="authAlertBanner" class="hidden rounded-2xl p-3.5 text-xs font-bold leading-relaxed border"></div>
+
+          <!-- 1. 登入表單 -->
+          <form id="formLogin" onsubmit="handleEmailLogin(event)" class="space-y-4">
+            <div>
+              <label class="text-xs text-slate-300 font-bold block mb-1.5">電子郵件 (Email) *</label>
+              <div class="relative">
+                <i data-lucide="mail" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3"></i>
+                <input type="email" id="loginEmail" required placeholder="請輸入您的註冊信箱" class="w-full bg-slate-900 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500">
+              </div>
+            </div>
+            <div>
+              <label class="text-xs text-slate-300 font-bold block mb-1.5">登入密碼 *</label>
+              <div class="relative">
+                <i data-lucide="lock" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3"></i>
+                <input type="password" id="loginPassword" required placeholder="請輸入密碼" class="w-full bg-slate-900 border border-slate-700 rounded-xl pl-10 pr-10 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500">
+                <button type="button" onclick="togglePasswordVisibility('loginPassword', 'eyeLogin')" class="absolute right-3 top-2.5 text-slate-400 hover:text-white p-0.5" title="顯示/隱藏密碼">
+                  <i id="eyeLogin" data-lucide="eye" class="w-4 h-4"></i>
+                </button>
+              </div>
+            </div>
+            <button type="submit" id="btnLoginSubmit" class="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-black text-sm shadow-lg transition flex items-center justify-center gap-2">
+              <i data-lucide="log-in" class="w-4 h-4"></i> 立即登入系統
+            </button>
+          </form>
+
+          <!-- 2. 註冊表單 (含真實姓名、學員身分選擇、垃圾郵件匣溫馨提醒) -->
+          <form id="formRegister" onsubmit="handleEmailRegister(event)" class="hidden space-y-3.5">
+            <div>
+              <label class="text-xs text-slate-300 font-bold block mb-1">真實姓名 *</label>
+              <div class="relative">
+                <i data-lucide="user" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3"></i>
+                <input type="text" id="regRealName" required placeholder="請輸入您的真實姓名 (如：王大明)" class="w-full bg-slate-900 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500">
+              </div>
+            </div>
+            <div>
+              <label class="text-xs text-slate-300 font-bold block mb-1">您的身分選擇 *</label>
+              <select id="regIdentity" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm font-bold text-amber-300 focus:outline-none focus:border-indigo-500">
+                <option value="TONY老師學員">🎓 TONY老師學員</option>
+                <option value="非學員(一般訪客)">👤 非學員(一般訪客)</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-xs text-slate-300 font-bold block mb-1">電子郵件 (Email) *</label>
+              <div class="relative">
+                <i data-lucide="mail" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3"></i>
+                <input type="email" id="regEmail" required placeholder="name@example.com" class="w-full bg-slate-900 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500">
+              </div>
+            </div>
+            <div>
+              <label class="text-xs text-slate-300 font-bold block mb-1">設定密碼 (至少 6 碼) *</label>
+              <div class="relative">
+                <i data-lucide="key-round" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3"></i>
+                <input type="password" id="regPassword" required minlength="6" placeholder="請設定至少 6 位數密碼" class="w-full bg-slate-900 border border-slate-700 rounded-xl pl-10 pr-10 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500">
+                <button type="button" onclick="togglePasswordVisibility('regPassword', 'eyeReg')" class="absolute right-3 top-2.5 text-slate-400 hover:text-white p-0.5" title="顯示/隱藏密碼">
+                  <i id="eyeReg" data-lucide="eye" class="w-4 h-4"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- 垃圾郵件匣溫馨提醒 -->
+            <div class="rounded-2xl bg-amber-500/10 border border-amber-500/30 p-3 flex items-start gap-2.5 text-xs text-amber-200 leading-relaxed">
+              <i data-lucide="mail-warning" class="w-4 h-4 text-amber-400 shrink-0 mt-0.5"></i>
+              <span><strong>溫馨提醒：</strong>註冊確認信有時會跑到「<strong>垃圾郵件匣</strong>」，請記得前往確認唷！點擊信中連結完成驗證後即可登入。</span>
+            </div>
+
+            <button type="submit" id="btnRegSubmit" class="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-sm shadow-lg transition flex items-center justify-center gap-2">
+              <i data-lucide="user-check" class="w-4 h-4"></i> 註冊並發送驗證信
+            </button>
+          </form>
+
+          <!-- 3. 忘記密碼表單 (含垃圾郵件匣溫馨提醒) -->
+          <form id="formForgot" onsubmit="handleForgotPassword(event)" class="hidden space-y-4">
+            <div>
+              <label class="text-xs text-slate-300 font-bold block mb-1.5">請輸入您的註冊電子郵件 *</label>
+              <div class="relative">
+                <i data-lucide="mail" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3"></i>
+                <input type="email" id="forgotEmail" required placeholder="我們將寄送密碼重設連結給您" class="w-full bg-slate-900 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500">
+              </div>
+            </div>
+
+            <!-- 垃圾郵件匣溫馨提醒 -->
+            <div class="rounded-2xl bg-amber-500/10 border border-amber-500/30 p-3 flex items-start gap-2.5 text-xs text-amber-200 leading-relaxed">
+              <i data-lucide="mail-warning" class="w-4 h-4 text-amber-400 shrink-0 mt-0.5"></i>
+              <span><strong>溫馨提醒：</strong>密碼重設與註冊確認信有時會跑到「<strong>垃圾郵件匣</strong>」，請記得前往確認唷！</span>
+            </div>
+
+            <button type="submit" id="btnForgotSubmit" class="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-sm shadow-lg transition flex items-center justify-center gap-2">
+              <i data-lucide="send" class="w-4 h-4"></i> 發送密碼重設信
+            </button>
+          </form>
+
+          <!-- 分隔線與 Google 多元登入 -->
+          <div class="relative flex py-1 items-center">
+            <div class="flex-grow border-t border-slate-800"></div>
+            <span class="flex-shrink mx-3 text-[11px] text-slate-400 font-bold">或使用快速多元登入</span>
+            <div class="flex-grow border-t border-slate-800"></div>
+          </div>
+
+          <button type="button" onclick="handleGoogleLogin()" class="w-full py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-900 font-black text-xs shadow transition flex items-center justify-center gap-2.5">
+            <svg class="w-4 h-4" viewBox="0 0 24 24">
+              <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.7l3.1-3.1C17.3 1.8 14.8 1 12 1 7.4 1 3.5 3.6 1.6 7.4l3.7 2.8C6.2 7.2 8.9 5 12 5z"/>
+              <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.6l3.7 2.9c2.2-2 3.7-5 3.7-8.7z"/>
+              <path fill="#FBBC05" d="M5.3 14.8c-.2-.8-.4-1.6-.4-2.5s.2-1.7.4-2.5L1.6 7C.6 9 0 11.2 0 13.5s.6 4.5 1.6 6.5l3.7-2.9z"/>
+              <path fill="#34A853" d="M12 24c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3.1 0-5.8-2.1-6.7-5l-3.7 2.8C3.5 21.4 7.4 24 12 24z"/>
+            </svg>
+            使用 Google 帳號一鍵安全登入
+          </button>
+
+          <!-- 雲端設定快捷入口 -->
+          <div class="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+            <span id="authModeHint">支援 Firebase Auth 實名驗證與 RBAC 分流</span>
+            <button type="button" onclick="openSettingsModal()" class="text-indigo-400 hover:underline font-bold flex items-center gap-1">
+              <i data-lucide="settings" class="w-3 h-3"></i> API & 雲端設定
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 登入頁底部版權宣告 -->
+    <div class="w-full border-t border-slate-800/80 bg-slate-950/80 py-3 px-4 text-center text-xs text-slate-400">
+      © 2020 TonyStudio. 本學習平台由 TONY 楊文澤資深AI科技顧問設計. All Rights Reserved.
+    </div>
+  </div>
+
+  <!-- 頂部導覽列 -->
+  <header class="glass-panel sticky top-0 z-40 border-b border-slate-800/80 px-4 lg:px-8 py-3">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <img src="https://firebasestorage.googleapis.com/v0/b/k16-tony-ai-wisdom-platform.firebasestorage.app/o/assets%2F6av64EOvvqQNAIoXqcPfHC5BBeF3%2F1785039560457_1.png?alt=media&token=19b27497-4101-4436-bc80-b299741b7984" alt="TonyStudio Logo" onerror="this.src='https://placehold.co/120x120/4f46e5/ffffff?text=TONY'" class="w-11 h-11 rounded-xl object-contain bg-slate-900 p-1 border border-indigo-500/40 shadow-lg shadow-indigo-500/20">
+        <div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <h1 class="font-black text-lg tracking-wider bg-gradient-to-r from-white via-indigo-200 to-amber-300 bg-clip-text text-transparent">OmniDraw AI 智創抽獎系統</h1>
+            <span id="syncBadge" class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center gap-1.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span> 智慧待機模式
+            </span>
+          </div>
+          <p class="text-xs text-slate-400">雙模互動引擎 (轉盤/拉霸) × 動態權重防呆 × Gemini AI 主持與核銷閉環</p>
+        </div>
+      </div>
+
+      <!-- 主選單 Tabs -->
+      <nav class="flex flex-wrap items-center bg-slate-900/90 p-1 rounded-xl border border-slate-800 gap-1">
+        <button onclick="switchTab('stage')" id="tab-stage" class="tab-btn px-3.5 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1.5 bg-indigo-600 text-white shadow transition">
+          <i data-lucide="flame" class="w-4 h-4"></i> 抽獎主舞台
+        </button>
+        <button onclick="switchTab('prizes')" id="tab-prizes" class="tab-btn px-3.5 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1.5 text-slate-400 hover:text-white transition">
+          <i data-lucide="gift" class="w-4 h-4"></i> 獎品與權重
+        </button>
+        <button onclick="switchTab('participants')" id="tab-participants" class="tab-btn px-3.5 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1.5 text-slate-400 hover:text-white transition">
+          <i data-lucide="users" class="w-4 h-4"></i> 名單管理
+        </button>
+        <button onclick="switchTab('redeem')" id="tab-redeem" class="tab-btn px-3.5 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1.5 text-slate-400 hover:text-white transition">
+          <i data-lucide="qr-code" class="w-4 h-4"></i> 核銷與統計
+        </button>
+      </nav>
+
+      <!-- 右側工具與會員/管理後台按鈕 -->
+      <div class="flex flex-wrap items-center gap-2">
+        <!-- 專屬管理者後台按鈕 (僅 Admin 顯示) -->
+        <button onclick="openAdminDashboardModal()" id="btnAdminPortal" class="hidden px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-400 hover:to-rose-400 text-slate-950 text-xs font-black shadow-lg flex items-center gap-1.5 transition">
+          <i data-lucide="shield-alert" class="w-4 h-4"></i> 進入管理後台
+        </button>
+
+        <button onclick="openTonyProfileModal()" class="px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-amber-300 border border-amber-500/30 text-xs font-bold flex items-center gap-1.5 transition" title="TONY 楊文澤顧問簡介">
+          <i data-lucide="user-check" class="w-4 h-4"></i> TONY 顧問
+        </button>
+
+        <button onclick="toggleSound()" id="soundBtn" class="p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700 transition" title="音效與語音開關">
+          <i data-lucide="volume-2" class="w-4 h-4"></i>
+        </button>
+
+        <button onclick="openSettingsModal()" class="px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold flex items-center gap-1.5 transition">
+          <i data-lucide="sliders-horizontal" class="w-4 h-4 text-indigo-400"></i> 設定
+        </button>
+
+        <!-- 當前登入會員徽章與登出 -->
+        <div id="headerUserBox" class="hidden items-center gap-2 bg-slate-900/90 border border-slate-700 rounded-xl px-3 py-1.5">
+          <div class="text-right">
+            <div class="flex items-center gap-1.5">
+              <span id="headerUserName" class="text-xs font-bold text-white">會員</span>
+              <span id="headerUserRoleBadge" class="text-[10px] px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 font-bold">USER</span>
+            </div>
+            <p id="headerUserEmail" class="text-[10px] text-slate-400 font-mono truncate max-w-[130px]"></p>
+          </div>
+          <button onclick="handleUserLogout()" class="p-1.5 rounded-lg bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-800/60 transition" title="安全登出">
+            <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- 自訂無干擾 Toast 訊息容器 -->
+  <div id="toastContainer" class="fixed top-20 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none"></div>
+
+  <!-- 主內容區 -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-6">
+
+    <!-- ==================== TAB 1: 抽獎主舞台 ==================== -->
+    <section id="view-stage" class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      
+      <!-- 左側：抽獎控制台 (4 cols) -->
+      <div class="lg:col-span-4 space-y-4">
+        <div class="glass-panel rounded-2xl p-5 neon-border space-y-5">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <h2 class="font-bold text-base flex items-center gap-2 text-indigo-300">
+              <i data-lucide="sliders" class="w-4 h-4"></i> 舞台互動控制台
+            </h2>
+            <span id="poolStatusBadge" class="text-xs bg-slate-800 px-2.5 py-1 rounded-lg text-slate-300 font-medium border border-slate-700">待抽人數: 0</span>
+          </div>
+
+          <!-- 模式切換：大轉盤 vs 拉霸機 -->
+          <div>
+            <label class="text-xs text-slate-400 font-medium block mb-2">選擇視覺互動模式</label>
+            <div class="grid grid-cols-2 gap-2 bg-slate-900 p-1.5 rounded-xl border border-slate-800">
+              <button onclick="setStageMode('wheel')" id="mode-wheel" class="py-2.5 rounded-lg font-bold text-sm flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow transition">
+                <i data-lucide="disc" class="w-4 h-4"></i> 幸運大轉盤
+              </button>
+              <button onclick="setStageMode('slot')" id="mode-slot" class="py-2.5 rounded-lg font-bold text-sm flex items-center justify-center gap-2 text-slate-400 hover:text-white transition">
+                <i data-lucide="cpu" class="w-4 h-4"></i> 霓虹拉霸機
+              </button>
+            </div>
+          </div>
+
+          <!-- 抽獎邏輯選擇 -->
+          <div>
+            <label class="text-xs text-slate-400 font-medium block mb-2">獎項分配模式</label>
+            <select id="prizeSelectMode" onchange="handlePrizeModeChange()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm font-medium text-white focus:outline-none focus:border-indigo-500">
+              <option value="weighted">🎲 依獎品機率權重隨機抽出 (推薦轉盤)</option>
+              <option value="specific">🎯 指定單一獎項抽出得主 (推薦拉霸)</option>
+            </select>
+          </div>
+
+          <!-- 指定獎項下拉選單 -->
+          <div id="specificPrizeBox" class="hidden">
+            <label class="text-xs text-amber-400 font-medium block mb-1.5">選擇當前要抽出的指定獎項</label>
+            <select id="targetPrizeSelect" class="w-full bg-slate-900 border border-amber-500/50 rounded-xl px-3.5 py-2.5 text-sm font-bold text-amber-300 focus:outline-none"></select>
+          </div>
+
+          <!-- 防呆與連抽設定 -->
+          <div class="space-y-3 pt-2 border-t border-slate-800/80 text-xs">
+            <label class="flex items-center justify-between cursor-pointer select-none">
+              <span class="text-slate-300 font-medium">排除已中獎者 (不重複中獎)</span>
+              <input type="checkbox" id="chkExcludeWinners" checked onchange="updateStageMetrics()" class="w-4 h-4 accent-indigo-500 rounded">
+            </label>
+            <label class="flex items-center justify-between cursor-pointer select-none">
+              <span class="text-slate-300 font-medium">啟用參加者 VIP 個人加權倍率</span>
+              <input type="checkbox" id="chkUseBonusWeight" checked class="w-4 h-4 accent-indigo-500 rounded">
+            </label>
+            <label class="flex items-center justify-between cursor-pointer select-none">
+              <span class="text-slate-300 font-medium">AI 現場氣氛主持賀詞 + 語音播報</span>
+              <input type="checkbox" id="chkAiHost" checked class="w-4 h-4 accent-amber-500 rounded">
+            </label>
+          </div>
+
+          <!-- 啟動抽獎大按鈕 -->
+          <button id="btnStartDraw" onclick="triggerDraw()" class="w-full py-4 rounded-xl font-black text-lg tracking-wider bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 hover:from-amber-400 hover:to-rose-400 text-slate-950 shadow-xl gold-glow transition transform active:scale-95 flex items-center justify-center gap-2">
+            <i data-lucide="zap" class="w-6 h-6 fill-slate-950"></i> 立即啟動抽獎
+          </button>
+        </div>
+
+        <!-- 最新中獎快訊 -->
+        <div class="glass-panel rounded-2xl p-4 border border-slate-800">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+              <i data-lucide="trophy" class="w-4 h-4 text-amber-400"></i> 最新即時得獎榮譽榜
+            </h3>
+            <button onclick="switchTab('redeem')" class="text-xs text-indigo-400 hover:underline font-medium">查看全部 &rarr;</button>
+          </div>
+          <div id="liveWinnerFeed" class="space-y-2 max-h-60 overflow-y-auto pr-1"></div>
+        </div>
+      </div>
+
+      <!-- 右側：雙模式主舞台區 (8 cols) -->
+      <div class="lg:col-span-8 glass-panel rounded-3xl p-6 lg:p-8 neon-border min-h-[540px] flex flex-col items-center justify-center relative overflow-hidden">
+        <!-- 裝飾背景光暈 -->
+        <div class="absolute -top-24 -right-24 w-72 h-72 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute -bottom-24 -left-24 w-72 h-72 bg-amber-500/15 rounded-full blur-3xl pointer-events-none"></div>
+
+        <!-- 舞台一：Canvas 幸運大轉盤 -->
+        <div id="stage-wheel-container" class="flex flex-col items-center justify-center w-full">
+          <div class="relative flex items-center justify-center">
+            <!-- 頂部指針 -->
+            <div class="absolute -top-5 z-20 drop-shadow-[0_4px_10px_rgba(245,158,11,0.8)]">
+              <svg width="44" height="48" viewBox="0 0 44 48" fill="none">
+                <path d="M22 48L4 12C1.5 7 5.2 1 10.8 1H33.2C38.8 1 42.5 7 40 12L22 48Z" fill="url(#pointerGrad)" stroke="#FFF" stroke-width="2"/>
+                <defs>
+                  <linearGradient id="pointerGrad" x1="22" y1="1" x2="22" y2="48" gradientUnits="userSpaceOnUse">
+                    <stop stop-color="#FBBF24"/>
+                    <stop offset="1" stop-color="#E11D48"/>
+                  </linearGradient>
+                </defs>
+              </svg>
+            </div>
+            <canvas id="wheelCanvas" width="440" height="440" class="max-w-full h-auto rounded-full shadow-[0_0_50px_rgba(99,102,241,0.4)] border-4 border-slate-700"></canvas>
+            <!-- 中心按鈕 -->
+            <button onclick="triggerDraw()" class="absolute w-20 h-20 rounded-full bg-gradient-to-br from-amber-400 to-rose-600 border-4 border-white shadow-2xl flex flex-col items-center justify-center font-black text-slate-950 text-xs hover:scale-105 active:scale-95 transition">
+              <span class="text-sm">GO!</span>
+              <span class="text-[10px] font-bold">旋轉</span>
+            </button>
+          </div>
+          <p class="mt-5 text-xs text-slate-400 text-center">扇區面積與標籤即時連動「剩餘庫存 &gt; 0」之獎品項目，抽完自動重繪</p>
+        </div>
+
+        <!-- 舞台二：3D 霓虹拉霸機 -->
+        <div id="stage-slot-container" class="hidden w-full max-w-2xl flex-col items-center justify-center space-y-6">
+          <div class="text-center space-y-1">
+            <span class="px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">CYBER SLOT ENGINE</span>
+            <h3 class="text-2xl font-black tracking-wide text-white pt-1">量子霓虹拉霸機</h3>
+          </div>
+
+          <!-- 三軸滾動視窗 -->
+          <div class="w-full bg-slate-950 p-5 sm:p-6 rounded-3xl border-2 border-indigo-500/50 shadow-[0_0_40px_rgba(99,102,241,0.3)] grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <!-- 滾軸 1：部門/編號 -->
+            <div class="flex flex-col items-center">
+              <span class="text-[11px] font-bold text-slate-400 mb-2 uppercase tracking-widest">部門 / 標籤</span>
+              <div class="slot-window w-full h-32 sm:h-36 bg-slate-900 rounded-2xl border border-slate-700 flex items-center justify-center">
+                <div id="reel-dept" class="slot-reel text-center font-bold text-lg text-indigo-300 px-3">準備就緒</div>
+              </div>
+            </div>
+            <!-- 滾軸 2：幸運得主姓名 -->
+            <div class="flex flex-col items-center">
+              <span class="text-[11px] font-bold text-amber-400 mb-2 uppercase tracking-widest">幸運得主</span>
+              <div class="slot-window w-full h-32 sm:h-36 bg-slate-900 rounded-2xl border-2 border-amber-500/60 flex items-center justify-center shadow-inner">
+                <div id="reel-name" class="slot-reel text-center font-black text-2xl text-amber-300 px-3">READY</div>
+              </div>
+            </div>
+            <!-- 滾軸 3：抽中獎項 -->
+            <div class="flex flex-col items-center">
+              <span class="text-[11px] font-bold text-emerald-400 mb-2 uppercase tracking-widest">獲得獎項</span>
+              <div class="slot-window w-full h-32 sm:h-36 bg-slate-900 rounded-2xl border border-slate-700 flex items-center justify-center">
+                <div id="reel-prize" class="slot-reel text-center font-bold text-base sm:text-lg text-emerald-300 px-3">GOOD LUCK</div>
+              </div>
+            </div>
+          </div>
+          <p class="text-xs text-slate-400 text-center">三軸獨立動態減速鎖定，同步驗證即時獎品庫存與得獎資格</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: 獎品與權重管理 ==================== -->
+    <section id="view-prizes" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- 新增/編輯獎品與 AI 精算師 -->
+        <div class="lg:col-span-4 space-y-4">
+          <div id="prizeFormCard" class="glass-panel rounded-2xl p-5 space-y-4 border border-slate-800 transition">
+            <div class="flex items-center justify-between">
+              <h3 id="prizeFormTitle" class="font-bold text-base flex items-center gap-2 text-indigo-300">
+                <i data-lucide="plus-circle" class="w-4 h-4"></i> 新增獎品項目
+              </h3>
+              <span id="prizeEditBadge" class="hidden text-[11px] px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold">編輯模式</span>
+            </div>
+            <input type="hidden" id="editingPrizeId" value="">
+            <div class="space-y-3 text-sm">
+              <div>
+                <label class="text-xs text-slate-400 block mb-1">獎品名稱 *</label>
+                <input type="text" id="prizeNameInput" placeholder="例如：頭獎 iPhone 17 Pro" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-indigo-500">
+              </div>
+              <div class="grid grid-cols-3 gap-2.5">
+                <div>
+                  <label class="text-xs text-slate-400 block mb-1">總數量 *</label>
+                  <input type="number" id="prizeQtyInput" value="1" min="1" onchange="syncRemainQtyOnTotalChange()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                  <label class="text-xs text-slate-400 block mb-1">剩餘數量 *</label>
+                  <input type="number" id="prizeRemainInput" value="1" min="0" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-emerald-300 font-bold focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                  <label class="text-xs text-amber-300 font-bold block mb-1">比例 (%) *</label>
+                  <input type="number" id="prizeWeightInput" value="10" min="0" max="100" step="1" class="w-full bg-slate-900 border border-amber-500/50 rounded-xl px-3 py-2 text-amber-300 font-bold focus:outline-none focus:border-amber-400">
+                </div>
+              </div>
+              <div>
+                <label class="text-xs text-slate-400 block mb-1">獎品圖片網址 (選填，或上傳本地圖片)</label>
+                <input type="text" id="prizeImageUrlInput" placeholder="https://..." class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white mb-2 focus:outline-none focus:border-indigo-500">
+                <input type="file" id="prizeImageFile" accept="image/*" class="w-full text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-indigo-600/30 file:text-indigo-300 hover:file:bg-indigo-600/50 cursor-pointer">
+              </div>
+              <label class="flex items-center justify-between text-xs bg-slate-900/90 border border-slate-800 rounded-xl px-3 py-2 cursor-pointer select-none">
+                <span class="text-slate-300 font-medium">儲存時自動將全部獎項比例配平至 100%</span>
+                <input type="checkbox" id="chkAutoNormalizePrize" class="w-4 h-4 accent-amber-500 rounded">
+              </label>
+              <div class="flex items-center gap-2">
+                <button onclick="savePrizeForm()" id="btnSavePrize" class="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-bold text-white flex items-center justify-center gap-1.5 transition">
+                  <i data-lucide="save" class="w-4 h-4"></i> <span id="btnSavePrizeText">儲存並加入獎池</span>
+                </button>
+                <button onclick="cancelEditPrize()" id="btnCancelPrizeEdit" class="hidden px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs border border-slate-700 transition">
+                  取消
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- AI 智慧獎池精算師 -->
+          <div class="glass-panel rounded-2xl p-5 border border-amber-500/30 space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="font-bold text-sm flex items-center gap-2 text-amber-300">
+                <i data-lucide="wand-2" class="w-4 h-4"></i> Gemini AI 智慧獎池精算師
+              </h3>
+              <span class="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded font-mono">Gemini 3 Flash</span>
+            </div>
+            <textarea id="aiPrizePrompt" rows="3" placeholder="輸入需求，例如：我們是數位行銷公司尾牙，預算 10 萬元、50 人參加，請幫我規劃 5 個階層的科技與實用獎項、數量與權重配置。" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-amber-500"></textarea>
+            <button onclick="generatePrizesWithAI()" id="btnAiPrizes" class="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 transition">
+              <i data-lucide="sparkles" class="w-4 h-4"></i> AI 一鍵自動生成獎品與 100% 機率表
+            </button>
+          </div>
+        </div>
+
+        <!-- 右側：獎品清單與動態機率分佈表 -->
+        <div class="lg:col-span-8 glass-panel rounded-2xl p-5 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 class="font-bold text-base text-white">目前獎池庫存與動態比例一覽</h3>
+              <p class="text-xs text-slate-400">系統自動檢核「設定比例加總是否為 100%」；當某獎項剩餘數量歸零時，即時實際機率將自動重分配並保持加總 100.0%。</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <button onclick="normalizeAllPrizesTo100()" class="px-3.5 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-xs text-amber-300 border border-amber-500/40 flex items-center gap-1.5 font-bold transition" title="依目前各獎項比例自動換算並配平加總為 100%">
+                <i data-lucide="scale" class="w-3.5 h-3.5"></i> 一鍵自動配平 100%
+              </button>
+              <button onclick="resetAllPrizeQty()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 border border-slate-700 flex items-center gap-1.5 font-bold transition">
+                <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i> 全部庫存補滿重置
+              </button>
+            </div>
+          </div>
+
+          <!-- 100% 比例自動檢核狀態橫幅 -->
+          <div id="weightCheckBanner" class="rounded-2xl p-3.5 border flex flex-wrap items-center justify-between gap-3 text-xs"></div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-sm">
+              <thead>
+                <tr class="border-b border-slate-800 text-xs text-slate-400">
+                  <th class="py-3 px-2">獎品圖示與名稱</th>
+                  <th class="py-3 px-2 text-center">總數</th>
+                  <th class="py-3 px-2 text-center">剩餘數量</th>
+                  <th class="py-3 px-2 text-center">設定比例 (%)</th>
+                  <th class="py-3 px-2 text-center">即時實際機率</th>
+                  <th class="py-3 px-2 text-right">修改 / 刪除</th>
+                </tr>
+              </thead>
+              <tbody id="prizeTableBody" class="divide-y divide-slate-800/60"></tbody>
+              <tfoot id="prizeTableFoot" class="border-t-2 border-slate-800 bg-slate-900/60 text-xs font-bold"></tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: 參加者名單管理 ==================== -->
+    <section id="view-participants" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- 匯入與新增/編輯區 -->
+        <div class="lg:col-span-4 space-y-4">
+          <div id="participantFormCard" class="glass-panel rounded-2xl p-5 space-y-4 border border-slate-800 transition">
+            <div class="flex items-center justify-between">
+              <h3 id="participantFormTitle" class="font-bold text-base flex items-center gap-2 text-indigo-300">
+                <i data-lucide="user-plus" class="w-4 h-4"></i> 單筆新增參加者
+              </h3>
+              <span id="participantEditBadge" class="hidden text-[11px] px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold">編輯模式</span>
+            </div>
+            <input type="hidden" id="editingParticipantId" value="">
+            <div class="space-y-3 text-sm">
+              <div>
+                <label class="text-xs text-slate-400 block mb-1">參加者姓名 *</label>
+                <input type="text" id="pNameInput" placeholder="姓名 (必填，如：王小明)" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-indigo-500">
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="text-xs text-slate-400 block mb-1">部門 / 組別</label>
+                  <input type="text" id="pDeptInput" placeholder="如：行銷部" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                  <label class="text-xs text-slate-400 block mb-1">個人加權倍率</label>
+                  <input type="number" id="pBonusInput" value="1" min="1" max="10" placeholder="預設 1" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-indigo-500" title="中獎權重倍率">
+                </div>
+              </div>
+              <div id="pWinnerStatusBox" class="hidden">
+                <label class="text-xs text-slate-400 block mb-1">中獎狀態調整</label>
+                <select id="pWinnerStatusSelect" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-xs font-bold text-amber-300 focus:outline-none focus:border-indigo-500">
+                  <option value="false">⏳ 待抽中 (具備抽獎資格)</option>
+                  <option value="true">🏆 已中獎</option>
+                </select>
+              </div>
+              <div class="flex items-center gap-2">
+                <button onclick="saveParticipantForm()" id="btnSaveParticipant" class="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-bold text-white flex items-center justify-center gap-1.5 transition">
+                  <i data-lucide="check" class="w-4 h-4"></i> <span id="btnSaveParticipantText">加入名單</span>
+                </button>
+                <button onclick="cancelEditParticipant()" id="btnCancelParticipantEdit" class="hidden px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs border border-slate-700 transition">
+                  取消
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="glass-panel rounded-2xl p-5 space-y-4">
+            <h3 class="font-bold text-base flex items-center gap-2 text-emerald-300">
+              <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> 批次匯入名單 (CSV / 多行文字)
+            </h3>
+            <p class="text-xs text-slate-400">支援格式：<code class="text-amber-300">姓名,部門,加權倍率</code>（每行一筆，亦可直接上傳 CSV 檔）</p>
+            <input type="file" id="csvFileInput" accept=".csv,.txt" onchange="handleCsvFileUpload(event)" class="w-full text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-emerald-600/30 file:text-emerald-300 cursor-pointer">
+            <textarea id="batchPasteInput" rows="5" placeholder="陳大文,數位行銷部,2&#10;林小雅,跨境商務組,1&#10;張志豪,品牌顧問處,1" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-emerald-500"></textarea>
+            <button onclick="importBatchParticipants()" class="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-white text-xs transition">批次解析並匯入名單</button>
+          </div>
+        </div>
+
+        <!-- 名單列表 -->
+        <div class="lg:col-span-8 glass-panel rounded-2xl p-5 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 class="font-bold text-base text-white">參加抽獎者名冊 (<span id="totalParticipantsCount">0</span> 人)</h3>
+              <p class="text-xs text-slate-400">可隨時重置所有人的「已中獎」狀態，或匯出未中獎名單發放安慰獎。</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="resetParticipantsWinnerStatus()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 border border-slate-700 transition">重置全員為未中獎</button>
+              <button onclick="askConfirm('確定要清空所有參加者名單嗎？此操作無法復原。', clearAllParticipants)" class="px-3.5 py-2 rounded-xl bg-rose-950/60 hover:bg-rose-900 text-xs font-bold text-rose-300 border border-rose-800 transition">清空名單</button>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto max-h-[480px]">
+            <table class="w-full text-left border-collapse text-sm">
+              <thead class="sticky top-0 bg-slate-900 z-10">
+                <tr class="border-b border-slate-800 text-xs text-slate-400">
+                  <th class="py-2.5 px-3">編號</th>
+                  <th class="py-2.5 px-3">姓名</th>
+                  <th class="py-2.5 px-3">部門 / 標籤</th>
+                  <th class="py-2.5 px-3 text-center">個人加權</th>
+                  <th class="py-2.5 px-3 text-center">狀態</th>
+                  <th class="py-2.5 px-3 text-right">修改 / 移除</th>
+                </tr>
+              </thead>
+              <tbody id="participantTableBody" class="divide-y divide-slate-800/60"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: 兌換核銷與數據匯出 ==================== -->
+    <section id="view-redeem" class="hidden space-y-6">
+      <!-- 頂部統計指標卡 -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="glass-panel rounded-2xl p-4 border-l-4 border-indigo-500">
+          <p class="text-xs text-slate-400">總參與人數 / 待抽池</p>
+          <p id="statParticipants" class="text-2xl font-black text-white mt-1">0 / 0</p>
+        </div>
+        <div class="glass-panel rounded-2xl p-4 border-l-4 border-amber-500">
+          <p class="text-xs text-slate-400">已抽出獎項 / 總獎品數</p>
+          <p id="statPrizes" class="text-2xl font-black text-amber-400 mt-1">0 / 0</p>
+        </div>
+        <div class="glass-panel rounded-2xl p-4 border-l-4 border-emerald-500">
+          <p class="text-xs text-slate-400">已完成兌換核銷</p>
+          <p id="statRedeemed" class="text-2xl font-black text-emerald-400 mt-1">0 筆</p>
+        </div>
+        <div class="glass-panel rounded-2xl p-4 border-l-4 border-rose-500">
+          <p class="text-xs text-slate-400">尚未領獎 / 現場棄權</p>
+          <p id="statPending" class="text-2xl font-black text-rose-400 mt-1">0 / 0</p>
+        </div>
+      </div>
+
+      <!-- 快速兌換核銷吧與匯出按鈕 -->
+      <div class="glass-panel rounded-2xl p-5 flex flex-wrap items-center justify-between gap-4">
+        <div class="flex flex-wrap items-center gap-2 flex-1 min-w-[280px]">
+          <div class="relative flex-1 max-w-md">
+            <i data-lucide="scan-line" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3"></i>
+            <input type="text" id="redeemCodeSearch" placeholder="輸入或掃描得獎者 6 碼兌換序號 (如：OD-8F3A)" class="w-full bg-slate-900 border border-slate-700 rounded-xl pl-10 pr-4 py-2 text-sm text-white uppercase focus:outline-none focus:border-emerald-500">
+          </div>
+          <button onclick="quickRedeemByCode()" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center gap-1.5 transition">
+            <i data-lucide="check-circle-2" class="w-4 h-4"></i> 立即核銷兌換
+          </button>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <button onclick="exportRecordsCSV('all')" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center gap-1.5 transition">
+            <i data-lucide="download" class="w-4 h-4"></i> 匯出完整中獎核銷報表 (CSV)
+          </button>
+          <button onclick="exportRecordsCSV('unwon')" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs flex items-center gap-1.5 transition">
+            <i data-lucide="file-down" class="w-4 h-4"></i> 匯出未中獎安慰獎名單
+          </button>
+        </div>
+      </div>
+
+      <!-- 中獎與核銷紀錄總表 -->
+      <div class="glass-panel rounded-2xl p-5">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <h3 class="font-bold text-base text-white">中獎明細、QR 數位兌換券與現場棄權重抽管理</h3>
+          <button onclick="askConfirm('確定要清空所有歷史中獎與核銷紀錄嗎？', clearAllRecords)" class="text-xs text-rose-400 hover:underline">清空核銷紀錄</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-sm">
+            <thead>
+              <tr class="border-b border-slate-800 text-xs text-slate-400">
+                <th class="py-3 px-2">時間</th>
+                <th class="py-3 px-2">兌換碼 (點擊複製)</th>
+                <th class="py-3 px-2">得獎者 (部門)</th>
+                <th class="py-3 px-2">抽中獎項</th>
+                <th class="py-3 px-2">AI 專屬賀詞</th>
+                <th class="py-3 px-2 text-center">核銷狀態</th>
+                <th class="py-3 px-2 text-right">核銷 / 棄權回補</th>
+              </tr>
+            </thead>
+            <tbody id="recordsTableBody" class="divide-y divide-slate-800/60"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==================== 平台創作者 TONY 顧問專區與底部版權宣告 ==================== -->
+  <footer class="mt-12 border-t border-slate-800/90 bg-slate-950/90 text-slate-300">
+    <div class="max-w-7xl mx-auto px-4 lg:px-8 py-8">
+      <div class="glass-panel rounded-3xl p-6 border border-slate-800 flex flex-col lg:flex-row items-center lg:items-start justify-between gap-6">
+        <div class="flex flex-col sm:flex-row items-center sm:items-start gap-5 max-w-2xl">
+          <img src="https://firebasestorage.googleapis.com/v0/b/k16-tony-ai-wisdom-platform.firebasestorage.app/o/assets%2F6av64EOvvqQNAIoXqcPfHC5BBeF3%2F1787580326393_ChatGPT%20Image%202026%E5%B9%B46%E6%9C%8819%E6%97%A5%20%E4%B8%8A%E5%8D%8811_16_14.png?alt=media&token=3c85de41-f36f-46e5-a97a-7bc7eb83a027" alt="TONY 楊文澤 老師" onerror="this.src='https://placehold.co/160x160/1e293b/fbbf24?text=TONY'" class="w-20 h-20 rounded-2xl object-cover border-2 border-amber-400 shadow-lg shrink-0">
+          <div class="text-center sm:text-left space-y-1.5">
+            <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+              <span class="text-base font-black text-white">平台創作者：TONY 楊文澤 老師</span>
+              <span class="text-[11px] px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold">資深數位行銷科技顧問 × 生成式 AI 創作者 × 創業導師</span>
+            </div>
+            <p class="text-xs text-slate-400 leading-relaxed">
+              現任龍華科大數位行銷講師、智策慧品牌行銷科技顧問。曾任脈動心聯股份有限公司創辦人暨執行長、宏碁集團建碁 AOPEN 整合營銷處處長 / 全球品牌行銷總監 / 企業發言人、台灣數位看板多媒體聯盟 (DSMA) 副會長。
+            </p>
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-3 shrink-0">
+          <button onclick="openTonyProfileModal()" class="px-4 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold flex items-center gap-2 transition">
+            <i data-lucide="book-open" class="w-4 h-4"></i> 瀏覽 TONY 顧問完整資歷
+          </button>
+        </div>
+      </div>
+
+      <div class="mt-6 pt-5 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
+        <div class="flex items-center gap-2.5">
+          <img src="https://firebasestorage.googleapis.com/v0/b/k16-tony-ai-wisdom-platform.firebasestorage.app/o/assets%2F6av64EOvvqQNAIoXqcPfHC5BBeF3%2F1785039560457_1.png?alt=media&token=19b27497-4101-4436-bc80-b299741b7984" alt="Logo" class="w-6 h-6 rounded object-contain">
+          <span class="font-bold text-slate-300">OmniDraw AI 智創雙模抽獎與核銷系統</span>
+        </div>
+        <p class="text-center font-medium text-slate-300">
+          © 2020 TonyStudio. 本學習平台由 TONY 楊文澤資深AI科技顧問設計. All Rights Reserved.
+        </p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ==================== 彈窗 1：中獎慶祝與 AI 主持揭曉 Modal ==================== -->
+  <div id="winnerModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="glass-panel max-w-lg w-full rounded-3xl p-6 lg:p-8 border-2 border-amber-500/60 gold-glow text-center space-y-5 relative animate-pop">
+      <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-400 to-rose-500 mx-auto flex items-center justify-center shadow-lg">
+        <i data-lucide="party-popper" class="w-9 h-9 text-slate-950"></i>
+      </div>
+      <div>
+        <button onclick="copyRedeemCodeFromModal()" id="modalRedeemBadge" class="px-3.5 py-1 rounded-full text-xs font-black bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30 transition inline-flex items-center gap-1.5" title="點擊複製兌換碼">
+          <span>兌換碼：OD-XXXX</span>
+          <i data-lucide="copy" class="w-3 h-3"></i>
+        </button>
+        <h2 id="modalWinnerName" class="text-3xl lg:text-4xl font-black text-white mt-3">王小明</h2>
+        <p id="modalWinnerDept" class="text-sm text-indigo-300 font-bold mt-1">數位行銷部</p>
+      </div>
+
+      <!-- 獎品展示卡 -->
+      <div class="bg-slate-900/90 rounded-2xl p-4 border border-slate-700 flex items-center gap-4 text-left">
+        <img id="modalPrizeImg" src="" alt="prize" onerror="this.src='https://placehold.co/160x160/1e293b/fbbf24?text=PRIZE'" class="w-16 h-16 rounded-xl object-cover bg-slate-800 border border-slate-700 shrink-0">
+        <div class="flex-1 min-w-0">
+          <p class="text-xs text-amber-400 font-bold">恭喜抽中大獎</p>
+          <p id="modalPrizeName" class="text-lg sm:text-xl font-black text-white truncate">iPhone 17 Pro</p>
+        </div>
+        <div id="modalQrBox" class="bg-white p-1.5 rounded-lg shrink-0"></div>
+      </div>
+
+      <!-- AI 主持人賀詞區 -->
+      <div class="bg-indigo-950/50 border border-indigo-500/30 rounded-2xl p-3.5 text-left">
+        <div class="flex items-center justify-between text-[11px] text-indigo-300 font-bold mb-1">
+          <span class="flex items-center gap-1"><i data-lucide="bot" class="w-3.5 h-3.5"></i> AI 現場氣氛主持人播報</span>
+          <span id="aiModelUsedTag" class="text-[10px] text-slate-400 font-mono">Gemini AI</span>
+        </div>
+        <p id="modalAiMessage" class="text-xs text-slate-200 leading-relaxed italic">正在為得獎者生成專屬幽默賀詞...</p>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3 pt-2">
+        <button onclick="forfeitCurrentWinner()" class="py-3 rounded-xl bg-rose-950/70 hover:bg-rose-900 text-rose-300 border border-rose-800 font-bold text-xs flex items-center justify-center gap-1.5 transition">
+          <i data-lucide="user-x" class="w-4 h-4"></i> 現場未到棄權 (庫存+1)
+        </button>
+        <button onclick="closeWinnerModal()" class="py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-sm transition">
+          確認並繼續抽獎
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 彈窗 2：系統與 AI 設定 Modal ==================== -->
+  <div id="settingsModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="glass-panel max-w-xl w-full rounded-3xl p-6 border border-slate-700 space-y-5 max-h-[90vh] overflow-y-auto animate-pop">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="font-bold text-lg text-white flex items-center gap-2">
+          <i data-lucide="settings" class="w-5 h-5 text-amber-400"></i> Gemini API 與 Firebase 雲端資料庫設定
+        </h3>
+        <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <div class="space-y-4 text-sm">
+        <div>
+          <label class="font-bold text-amber-300 block mb-1">1. Google Gemini API Key (選填，啟用 AI 主持與獎池精算)</label>
+          <input type="password" id="inputGeminiKey" placeholder="留空則自動使用系統內建 Gemini 通道，或輸入 AIzaSy... 金鑰" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-500">
+        </div>
+
+        <div>
+          <label class="font-bold text-indigo-300 block mb-1">2. 活動專屬識別碼 (Event ID)</label>
+          <input type="text" id="inputEventId" value="tonystudio-2026-gala" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500">
+        </div>
+
+        <div>
+          <label class="font-bold text-emerald-300 block mb-1">3. 自訂 Firebase Config JSON (選填，貼上即啟動專屬專案 Auth + Firestore 同步)</label>
+          <textarea id="inputFirebaseConfig" rows="4" placeholder='{"apiKey":"...","authDomain":"...","projectId":"...","storageBucket":"...","appId":"..."}' class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-mono text-white"></textarea>
+          <p class="text-[11px] text-slate-400 mt-1">本環境已自動掛載雲端驗證與資料庫；若您欲獨立匯出部署至外部主機，可在此貼上您的 Firebase 設定。</p>
+        </div>
+
+        <div class="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center justify-between">
+          <div>
+            <p class="text-xs font-bold text-slate-200">還原系統預設展示資料</p>
+            <p class="text-[11px] text-slate-400">將獎品、參加者與核銷紀錄重設回初始範例狀態</p>
+          </div>
+          <button onclick="askConfirm('確定要還原所有預設展示資料嗎？', resetToDefaultDemo)" class="px-3 py-1.5 rounded-xl bg-rose-950/70 hover:bg-rose-900 text-rose-300 border border-rose-800 text-xs font-bold transition">一鍵還原</button>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-3 pt-3 border-t border-slate-800">
+        <button onclick="closeSettingsModal()" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold">關閉</button>
+        <button onclick="saveSystemSettings()" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5">
+          <i data-lucide="check" class="w-4 h-4"></i> 儲存設定並套用
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 彈窗 4：專屬管理者後台 (Admin Dashboard Modal) ==================== -->
+  <div id="adminDashboardModal" class="fixed inset-0 z-50 hidden bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6">
+    <div class="glass-panel max-w-7xl w-full rounded-3xl p-5 sm:p-7 border-2 border-amber-500/50 shadow-2xl flex flex-col max-h-[92vh] animate-pop">
+      <!-- 頂部標題與匯出按鈕 -->
+      <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+        <div class="flex items-center gap-3">
+          <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-400 to-rose-600 flex items-center justify-center text-slate-950 shadow-lg">
+            <i data-lucide="shield-check" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 class="font-black text-lg sm:text-xl text-white">SaaS 專屬管理者後台 (Admin Dashboard)</h3>
+              <span class="text-[11px] px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold">RBAC 最高權限</span>
+            </div>
+            <p class="text-xs text-slate-400">系統創作者鎖定保護 (<code class="text-amber-300">mindnodeai@gmail.com</code>) ｜ 會員權限升降級 ｜ 歷史軌跡 ｜ 商業數據匯出與 AI 營運分析報告</p>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <button onclick="exportMembersCSV()" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black flex items-center gap-1.5 shadow transition">
+            <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> 匯出會員名單 CSV (含 BOM)
+          </button>
+          <button onclick="closeAdminDashboardModal()" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- 後台內容滾動區 -->
+      <div class="flex-1 overflow-y-auto space-y-6 py-5 pr-1">
+        <!-- 區塊 A：會員統計指標 -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4">
+            <p class="text-xs text-slate-400">總註冊會員數</p>
+            <p id="adminStatTotalMembers" class="text-2xl font-black text-white mt-1">0</p>
+          </div>
+          <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4">
+            <p class="text-xs text-slate-400">TONY老師學員 / 一般訪客</p>
+            <p id="adminStatIdentitySplit" class="text-2xl font-black text-amber-400 mt-1">0 / 0</p>
+          </div>
+          <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4">
+            <p class="text-xs text-slate-400">管理員 (Admin) 人數</p>
+            <p id="adminStatAdmins" class="text-2xl font-black text-indigo-400 mt-1">0</p>
+          </div>
+          <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4">
+            <p class="text-xs text-slate-400">累計總登入活躍次數</p>
+            <p id="adminStatTotalLogins" class="text-2xl font-black text-emerald-400 mt-1">0 次</p>
+          </div>
+        </div>
+
+        <!-- 區塊 B：註冊會員管理總表 -->
+        <div class="bg-slate-900/75 border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h4 class="font-bold text-sm text-white flex items-center gap-2">
+              <i data-lucide="users" class="w-4 h-4 text-indigo-400"></i> 註冊會員名冊與 RBAC 權限管理
+            </h4>
+            <span class="text-[11px] text-slate-400">點擊「歷史紀錄」可檢視該會員之登入與操作軌跡；創作者帳號受系統永久保護不可刪除或降級</span>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs sm:text-sm">
+              <thead>
+                <tr class="border-b border-slate-800 text-xs text-slate-400">
+                  <th class="py-3 px-2.5">真實姓名</th>
+                  <th class="py-3 px-2.5">電子郵件 (Email)</th>
+                  <th class="py-3 px-2.5">身分屬性</th>
+                  <th class="py-3 px-2.5">註冊時間</th>
+                  <th class="py-3 px-2.5 text-center">登入次數</th>
+                  <th class="py-3 px-2.5 text-center">目前權限</th>
+                  <th class="py-3 px-2.5 text-right">權限切換 / 歷史 / 刪除</th>
+                </tr>
+              </thead>
+              <tbody id="adminMembersTableBody" class="divide-y divide-slate-800/70"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 區塊 C：會員歷史紀錄檢視面板 -->
+        <div id="memberHistoryDrawer" class="hidden bg-indigo-950/30 border border-indigo-500/40 rounded-2xl p-4 space-y-2">
+          <div class="flex items-center justify-between">
+            <h5 id="memberHistoryTitle" class="text-xs font-black text-indigo-300 flex items-center gap-1.5">
+              <i data-lucide="history" class="w-4 h-4"></i> 會員歷史活動與登入紀錄
+            </h5>
+            <button onclick="document.getElementById('memberHistoryDrawer').classList.add('hidden')" class="text-xs text-slate-400 hover:text-white">關閉檢視</button>
+          </div>
+          <div id="memberHistoryList" class="space-y-1.5 max-h-40 overflow-y-auto text-xs text-slate-300"></div>
+        </div>
+
+        <!-- 區塊 D：AI 營運分析報告產生器 (含起訖時間設定 & 匯出 Word 檔) -->
+        <div class="bg-slate-900/90 border border-amber-500/40 rounded-2xl p-5 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h4 class="font-bold text-sm sm:text-base text-amber-300 flex items-center gap-2">
+                <i data-lucide="FileText" class="w-4 h-4"></i> 6. Gemini AI 智慧商業分析報告 (支援區間篩選與 Word 匯出)
+              </h4>
+              <p class="text-xs text-slate-400">設定分析起訖日期，結合平台會員成長結構、學員佔比、抽獎參與度與核銷轉換率，一鍵產出顧問級商業洞察報告。</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <div class="flex items-center gap-1.5 text-xs">
+                <span class="text-slate-400">起：</span>
+                <input type="date" id="reportStartDate" class="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white">
+              </div>
+              <div class="flex items-center gap-1.5 text-xs">
+                <span class="text-slate-400">迄：</span>
+                <input type="date" id="reportEndDate" class="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white">
+              </div>
+              <button onclick="generateAiBusinessReport()" id="btnGenerateAiReport" class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs flex items-center gap-1.5 transition">
+                <i data-lucide="sparkles" class="w-4 h-4"></i> 產出 AI 分析報告
+              </button>
+              <button onclick="exportAiReportToWord()" id="btnExportWord" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs flex items-center gap-1.5 transition">
+                <i data-lucide="file-down" class="w-4 h-4"></i> 輸出成 WORD 檔 (.doc)
+              </button>
+            </div>
+          </div>
+
+          <div id="aiReportOutputBox" class="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs sm:text-sm text-slate-200 leading-relaxed whitespace-pre-line max-h-72 overflow-y-auto">
+            請選擇起訖日期並點擊上方「產出 AI 分析報告」，系統將自動彙整區間內之會員註冊數據、學員結構與抽獎核銷成效，生成可匯出為 Word 文件之完整分析報告。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 彈窗 5：平台創作者 TONY 顧問完整簡介 Modal ==================== -->
+  <div id="tonyProfileModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="glass-panel max-w-3xl w-full rounded-3xl p-6 sm:p-8 border-2 border-amber-500/50 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto animate-pop">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+        <div class="flex items-center gap-3">
+          <img src="https://firebasestorage.googleapis.com/v0/b/k16-tony-ai-wisdom-platform.firebasestorage.app/o/assets%2F6av64EOvvqQNAIoXqcPfHC5BBeF3%2F1785039560457_1.png?alt=media&token=19b27497-4101-4436-bc80-b299741b7984" alt="Logo" class="w-9 h-9 rounded-lg object-contain bg-slate-900 p-1 border border-slate-700">
+          <h3 class="font-black text-lg text-white">平台創作者：TONY 楊文澤 顧問簡介</h3>
+        </div>
+        <button onclick="closeTonyProfileModal()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <!-- 頂部人物名片 -->
+      <div class="flex flex-col sm:flex-row items-center gap-6 bg-slate-900/90 p-5 rounded-2xl border border-slate-800">
+        <img src="https://firebasestorage.googleapis.com/v0/b/k16-tony-ai-wisdom-platform.firebasestorage.app/o/assets%2F6av64EOvvqQNAIoXqcPfHC5BBeF3%2F1787580326393_ChatGPT%20Image%202026%E5%B9%B46%E6%9C%8819%E6%97%A5%20%E4%B8%8A%E5%8D%8811_16_14.png?alt=media&token=3c85de41-f36f-46e5-a97a-7bc7eb83a027" alt="TONY 楊文澤 老師" class="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl object-cover border-2 border-amber-400 shadow-xl shrink-0">
+        <div class="space-y-2 text-center sm:text-left">
+          <h4 class="text-2xl font-black text-white">TONY 楊文澤 老師</h4>
+          <div class="flex flex-wrap justify-center sm:justify-start gap-2">
+            <span class="px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">資深數位行銷科技顧問</span>
+            <span class="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">生成式 AI 創作者</span>
+            <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">創業導師</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 四大資歷區塊 -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs sm:text-sm">
+        <div class="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 space-y-2">
+          <h5 class="font-black text-amber-400 flex items-center gap-1.5"><i data-lucide="briefcase" class="w-4 h-4"></i> 現職 Current</h5>
+          <ul class="space-y-1.5 text-slate-200">
+            <li>▪ 龍華科大 數位行銷講師</li>
+            <li>▪ 智策慧 品牌行銷科技顧問</li>
+          </ul>
+        </div>
+
+        <div class="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 space-y-2">
+          <h5 class="font-black text-indigo-300 flex items-center gap-1.5"><i data-lucide="graduation-cap" class="w-4 h-4"></i> 學歷 Education</h5>
+          <ul class="space-y-1.5 text-slate-200">
+            <li>- 台大 EMBA 商學組</li>
+            <li>- 美國 Arizona State University 互動多媒體設計</li>
+            <li>▪ 北科大 工業設計</li>
+          </ul>
+        </div>
+
+        <div class="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 space-y-2">
+          <h5 class="font-black text-emerald-300 flex items-center gap-1.5"><i data-lucide="award" class="w-4 h-4"></i> 經歷 Experience</h5>
+          <ul class="space-y-1.5 text-slate-200 leading-relaxed">
+            <li>▪ 脈動心聯股份有限公司 創辦人暨執行長</li>
+            <li>- 宏碁集團建碁 AOPEN 整合營銷處處長 / 全球品牌行銷總監 / 企業發言人</li>
+            <li>- 台灣數位看板多媒體聯盟 (DSMA) 副會長</li>
+          </ul>
+        </div>
+
+        <div class="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 space-y-2">
+          <h5 class="font-black text-purple-300 flex items-center gap-1.5"><i data-lucide="presentation" class="w-4 h-4"></i> 專家授課經歷</h5>
+          <ul class="space-y-1.5 text-slate-200 leading-relaxed">
+            <li>▪ CPC 生產力中心 經營管理顧問師班 / 中小企業成長創價能量 講師</li>
+            <li>- 台大 EMBA / 長榮 EMBA / 北科大 / 政大 / 世新 業師</li>
+            <li>- 2021 MarTech 行銷科技行銷長認證班 講師</li>
+            <li>- 2021/2024/2025 T大使與產業尖兵 講師</li>
+            <li>- 2025 新光人壽 AI 工具應用 企業內訓講師</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between pt-3 border-t border-slate-800 text-xs text-slate-400">
+        <span>© 2020 TonyStudio. 本學習平台由 TONY 楊文澤資深AI科技顧問設計. All Rights Reserved.</span>
+        <button onclick="closeTonyProfileModal()" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold">關閉視窗</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 彈窗 3：自訂安全確認 Modal (取代原生 confirm) ==================== -->
+  <div id="confirmModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-panel max-w-sm w-full rounded-2xl p-6 border border-slate-700 space-y-4 text-center animate-pop">
+      <div class="w-12 h-12 rounded-full bg-amber-500/20 text-amber-400 mx-auto flex items-center justify-center">
+        <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+      </div>
+      <h4 class="font-bold text-base text-white">操作確認</h4>
+      <p id="confirmModalText" class="text-xs text-slate-300 leading-relaxed">確定要執行此操作嗎？</p>
+      <div class="grid grid-cols-2 gap-2 pt-2">
+        <button onclick="closeConfirmModal()" class="py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold">取消</button>
+        <button id="confirmModalYesBtn" class="py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold">確定執行</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase 全端 SaaS 模組橋接器 -->
+  <script type="module">
+    import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import {
+      getAuth,
+      signInAnonymously,
+      signInWithCustomToken,
+      createUserWithEmailAndPassword,
+      signInWithEmailAndPassword,
+      sendEmailVerification,
+      sendPasswordResetEmail,
+      GoogleAuthProvider,
+      signInWithPopup,
+      signOut
+    } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import {
+      getFirestore,
+      doc,
+      setDoc,
+      getDoc,
+      updateDoc,
+      deleteDoc,
+      collection,
+      onSnapshot
+    } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    const CREATOR_EMAIL = 'mindnodeai@gmail.com';
+    const envAppId = typeof __app_id !== 'undefined' ? __app_id : 'omnidraw-saas-default';
+
+    window.SaaSBridge = {
+      app: null,
+      auth: null,
+      db: null,
+      appId: envAppId,
+      isCloudReady: false,
+      hasRealAuthProvider: false,
+      membersUnsub: null,
+      stateUnsub: null,
+
+      async init(customConfigStr, eventId) {
+        try {
+          let configObj = null;
+          if (customConfigStr) {
+            configObj = JSON.parse(customConfigStr);
+            this.hasRealAuthProvider = true;
+          } else if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+            configObj = JSON.parse(__firebase_config);
+          }
+          if (!configObj) return false;
+
+          if (!getApps().length) {
+            this.app = initializeApp(configObj);
+          } else {
+            this.app = getApps()[0];
+          }
+          this.auth = getAuth(this.app);
+          this.db = getFirestore(this.app);
+
+          // RULE 3: 先完成環境驗證以確保 Firestore 讀寫權限
+          if (!this.auth.currentUser) {
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+              await signInWithCustomToken(this.auth, __initial_auth_token);
+            } else {
+              await signInAnonymously(this.auth);
+            }
+          }
+
+          this.isCloudReady = true;
+          this.startRealtimeListeners(eventId || 'tonystudio-2026-gala');
+          return true;
+        } catch (err) {
+          console.warn("Firebase SaaS 初始化降級為智慧內建模式:", err);
+          return false;
+        }
+      },
+
+      startRealtimeListeners(eventId) {
+        if (!this.isCloudReady || !this.db || !this.auth.currentUser) return;
+        const stateDocRef = doc(this.db, 'artifacts', this.appId, 'public', 'data', 'omnidraw_events', eventId);
+        if (this.stateUnsub) this.stateUnsub();
+        this.stateUnsub = onSnapshot(stateDocRef, (snap) => {
+          if (snap.exists() && window.onCloudStateReceived) {
+            window.onCloudStateReceived(snap.data());
+          }
+        }, (err) => console.warn("Event sync listener notice:", err));
+
+        const membersColRef = collection(this.db, 'artifacts', this.appId, 'public', 'data', 'saas_members');
+        if (this.membersUnsub) this.membersUnsub();
+        this.membersUnsub = onSnapshot(membersColRef, (snap) => {
+          const list = [];
+          snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+          if (window.onCloudMembersReceived) {
+            window.onCloudMembersReceived(list);
+          }
+        }, (err) => console.warn("Members listener notice:", err));
+      },
+
+      async syncEventState(eventId, stateObj) {
+        if (!this.isCloudReady || !this.db || !this.auth.currentUser) return;
+        try {
+          const stateDocRef = doc(this.db, 'artifacts', this.appId, 'public', 'data', 'omnidraw_events', eventId);
+          await setDoc(stateDocRef, {
+            prizes: stateObj.prizes,
+            participants: stateObj.participants,
+            records: stateObj.records,
+            updatedAt: Date.now()
+          }, { merge: true });
+        } catch (e) {
+          console.warn("Sync state warning:", e);
+        }
+      },
+
+      async saveMemberDoc(memberObj) {
+        if (!this.isCloudReady || !this.db || !this.auth.currentUser) return;
+        try {
+          const docId = memberObj.email.toLowerCase().replace(/[^a-z0-9]/g, '_');
+          const mRef = doc(this.db, 'artifacts', this.appId, 'public', 'data', 'saas_members', docId);
+          await setDoc(mRef, memberObj, { merge: true });
+        } catch (e) {
+          console.warn("Save member warning:", e);
+        }
+      },
+
+      async removeMemberDoc(email) {
+        if (!this.isCloudReady || !this.db || !this.auth.currentUser) return;
+        try {
+          const docId = email.toLowerCase().replace(/[^a-z0-9]/g, '_');
+          const mRef = doc(this.db, 'artifacts', this.appId, 'public', 'data', 'saas_members', docId);
+          await deleteDoc(mRef);
+        } catch (e) {
+          console.warn("Remove member warning:", e);
+        }
+      },
+
+      // 嘗試透過真實 Firebase Auth 註冊並寄送驗證信
+      async tryFirebaseEmailRegister(email, password) {
+        if (!this.auth) return { mode: 'simulated' };
+        try {
+          const cred = await createUserWithEmailAndPassword(this.auth, email, password);
+          await sendEmailVerification(cred.user);
+          await signOut(this.auth);
+          // 登出後重新取得匿名通道以維持 Firestore 存取
+          if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+            await signInWithCustomToken(this.auth, __initial_auth_token);
+          } else {
+            await signInAnonymously(this.auth);
+          }
+          return { mode: 'firebase_real', success: true };
+        } catch (err) {
+          if (err.code === 'auth/email-already-in-use') {
+            return { mode: 'firebase_real', error: '此信箱已經註冊過，請直接登入或使用忘記密碼功能！' };
+          }
+          return { mode: 'simulated' };
+        }
+      },
+
+      async tryFirebaseEmailLogin(email, password) {
+        if (!this.auth) return { mode: 'simulated' };
+        try {
+          const cred = await signInWithEmailAndPassword(this.auth, email, password);
+          if (!cred.user.emailVerified && email.toLowerCase() !== CREATOR_EMAIL) {
+            await signOut(this.auth);
+            return { mode: 'firebase_real', unverified: true };
+          }
+          return { mode: 'firebase_real', success: true, user: cred.user };
+        } catch (err) {
+          if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+            return { mode: 'firebase_real', error: '帳號或密碼不正確，請重新確認！' };
+          }
+          return { mode: 'simulated' };
+        }
+      },
+
+      async tryFirebaseGooglePopup() {
+        if (!this.auth) return { mode: 'simulated' };
+        try {
+          const provider = new GoogleAuthProvider();
+          const res = await signInWithPopup(this.auth, provider);
+          return {
+            mode: 'firebase_real',
+            user: {
+              email: res.user.email,
+              realName: res.user.displayName || res.user.email.split('@')[0]
+            }
+          };
+        } catch (e) {
+          return { mode: 'simulated' };
+        }
+      },
+
+      async tryFirebasePasswordReset(email) {
+        if (!this.auth) return { mode: 'simulated' };
+        try {
+          await sendPasswordResetEmail(this.auth, email);
+          return { mode: 'firebase_real', success: true };
+        } catch (e) {
+          return { mode: 'simulated' };
+        }
+      }
+    };
+
+    if (window.onSaaSBridgeLoaded) window.onSaaSBridgeLoaded();
+  </script>
+
+  <!-- 核心應用程式邏輯 -->
+  <script>
+    // ==================== 1. 狀態初始化與預設資料 ====================
+    const CREATOR_ADMIN_EMAIL = 'mindnodeai@gmail.com';
+    let soundEnabled = true;
+    let currentStageMode = 'wheel'; // 'wheel' | 'slot'
+    let isDrawing = false;
+    let wheelAngle = 0;
+    let lastRecordId = null;
+    let customGeminiKey = '';
+    let customFirebaseCfg = '';
+    let currentEventName = 'tonystudio-2026-gala';
+
+    // 目前登入之 SaaS 會員與全體會員清單 (支援雲端 Firestore 即時同步)
+    let currentAuthUser = null;
+    let saasMembers = [
+      {
+        email: 'mindnodeai@gmail.com',
+        realName: 'TONY 楊文澤 老師',
+        identity: 'TONY老師學員',
+        role: 'admin',
+        isCreator: true,
+        emailVerified: true,
+        createdAt: '2026-01-01 09:00:00',
+        createdTimestamp: new Date('2026-01-01T09:00:00').getTime(),
+        loginCount: 18,
+        passwordHash: 'tonystudio888',
+        history: [
+          '2026-01-01 09:00:00 - 系統創作者最高權限帳號初始化完成 (永久保護不可降級與刪除)',
+          '2026-10-17 14:00:00 - 登入系統檢視雙模抽獎舞台與核銷報表'
+        ]
+      },
+      {
+        email: 'vip.student@tonystudio.tw',
+        realName: '陳冠宇',
+        identity: 'TONY老師學員',
+        role: 'user',
+        isCreator: false,
+        emailVerified: true,
+        createdAt: '2026-09-15 14:20:00',
+        createdTimestamp: new Date('2026-09-15T14:20:00').getTime(),
+        loginCount: 5,
+        passwordHash: '123456',
+        history: [
+          '2026-09-15 14:20:00 - 完成學員註冊並通過 Double Opt-in 信箱驗證',
+          '2026-10-10 19:30:00 - 執行尾牙獎池 AI 精算與轉盤抽獎'
+        ]
+      },
+      {
+        email: 'guest.marketing@brand.com',
+        realName: '林佳穎',
+        identity: '非學員(一般訪客)',
+        role: 'user',
+        isCreator: false,
+        emailVerified: true,
+        createdAt: '2026-10-05 11:10:00',
+        createdTimestamp: new Date('2026-10-05T11:10:00').getTime(),
+        loginCount: 2,
+        passwordHash: '123456',
+        history: [
+          '2026-10-05 11:10:00 - 一般訪客註冊並完成信箱驗證'
+        ]
+      }
+    ];
+
+    const DEFAULT_STATE = {
+      prizes: [
+        { id: 'p1', name: '頭獎 iPhone 17 Pro 256G', totalQty: 1, remainQty: 1, weight: 5, imageUrl: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=200&q=80' },
+        { id: 'p2', name: '貳獎 iPad Air M3 智慧套組', totalQty: 2, remainQty: 2, weight: 10, imageUrl: 'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=200&q=80' },
+        { id: 'p3', name: '參獎 Sony 降噪藍牙耳機', totalQty: 3, remainQty: 3, weight: 20, imageUrl: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=200&q=80' },
+        { id: 'p4', name: '肆獎 數位百貨禮券 $3,000', totalQty: 5, remainQty: 5, weight: 25, imageUrl: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=200&q=80' },
+        { id: 'p5', name: '驚喜獎 品牌精品保溫隨行杯', totalQty: 8, remainQty: 8, weight: 40, imageUrl: 'https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?w=200&q=80' }
+      ],
+      participants: [
+        { id: 'u1', name: '林志遠', dept: '品牌行銷處', bonus: 2, isWinner: false },
+        { id: 'u2', name: '陳雅婷', dept: '跨境商務部', bonus: 1, isWinner: false },
+        { id: 'u3', name: '張家豪', dept: 'AI 研發中心', bonus: 2, isWinner: false },
+        { id: 'u4', name: '許瑋甯', dept: '數位內容組', bonus: 1, isWinner: false },
+        { id: 'u5', name: '王建民', dept: '企業顧問部', bonus: 1, isWinner: false },
+        { id: 'u6', name: '劉品言', dept: '整合營銷處', bonus: 1, isWinner: false },
+        { id: 'u7', name: '周杰倫', dept: '創意視覺組', bonus: 2, isWinner: false },
+        { id: 'u8', name: '蔡依林', dept: '公關發言室', bonus: 1, isWinner: false }
+      ],
+      records: []
+    };
+
+    let appState = JSON.parse(JSON.stringify(DEFAULT_STATE));
+
+    function saveState() {
+      if (window.SaaSBridge && window.SaaSBridge.isCloudReady) {
+        window.SaaSBridge.syncEventState(currentEventName, appState);
+      }
+      renderAll();
+    }
+
+    window.onCloudStateReceived = (cloudData) => {
+      if (cloudData.prizes) appState.prizes = cloudData.prizes;
+      if (cloudData.participants) appState.participants = cloudData.participants;
+      if (cloudData.records) appState.records = cloudData.records;
+      renderAll();
+    };
+
+    window.onCloudMembersReceived = (cloudMembers) => {
+      if (Array.isArray(cloudMembers) && cloudMembers.length > 0) {
+        // 確保創作者帳號永遠存在且具備最高 admin 權限
+        const mergedMap = new Map();
+        saasMembers.forEach(m => mergedMap.set(m.email.toLowerCase(), m));
+        cloudMembers.forEach(m => {
+          if (m && m.email) {
+            const isCreator = m.email.toLowerCase() === CREATOR_ADMIN_EMAIL;
+            mergedMap.set(m.email.toLowerCase(), {
+              ...m,
+              role: isCreator ? 'admin' : (m.role || 'user'),
+              isCreator
+            });
+          }
+        });
+        saasMembers = Array.from(mergedMap.values());
+        renderAdminDashboard();
+      }
+    };
+
+    // ==================== 1.2 會員註冊、Double Opt-in 信箱驗證、RBAC 與管理後台邏輯 ====================
+    function switchAuthMode(mode) {
+      ['login', 'register', 'forgot'].forEach(m => {
+        const form = document.getElementById(m === 'login' ? 'formLogin' : (m === 'register' ? 'formRegister' : 'formForgot'));
+        const tab = document.getElementById(`authTab-${m}`);
+        if (m === mode) {
+          form.classList.remove('hidden');
+          tab.className = 'py-2 rounded-xl text-xs font-black bg-indigo-600 text-white shadow transition';
+        } else {
+          form.classList.add('hidden');
+          tab.className = 'py-2 rounded-xl text-xs font-black text-slate-400 hover:text-white transition';
+        }
+      });
+      hideAuthBanner();
+      lucide.createIcons();
+    }
+
+    function togglePasswordVisibility(inputId, iconId) {
+      const inp = document.getElementById(inputId);
+      const icon = document.getElementById(iconId);
+      if (!inp) return;
+      if (inp.type === 'password') {
+        inp.type = 'text';
+        icon.setAttribute('data-lucide', 'eye-off');
+      } else {
+        inp.type = 'password';
+        icon.setAttribute('data-lucide', 'eye');
+      }
+      lucide.createIcons();
+    }
+
+    function showAuthBanner(htmlContent, type = 'green') {
+      const banner = document.getElementById('authAlertBanner');
+      banner.classList.remove('hidden');
+      if (type === 'green') {
+        banner.className = 'rounded-2xl p-3.5 text-xs font-bold leading-relaxed border bg-emerald-500/15 border-emerald-500/40 text-emerald-300 animate-pop';
+      } else {
+        banner.className = 'rounded-2xl p-3.5 text-xs font-bold leading-relaxed border bg-rose-500/15 border-rose-500/40 text-rose-300 animate-pop';
+      }
+      banner.innerHTML = htmlContent;
+      lucide.createIcons();
+    }
+
+    function hideAuthBanner() {
+      const banner = document.getElementById('authAlertBanner');
+      if (banner) banner.classList.add('hidden');
+    }
+
+    // 註冊：觸發 sendEmailVerification、強制登出並顯示綠字提示
+    async function handleEmailRegister(e) {
+      e.preventDefault();
+      const realName = document.getElementById('regRealName').value.trim();
+      const identity = document.getElementById('regIdentity').value;
+      const email = document.getElementById('regEmail').value.trim().toLowerCase();
+      const password = document.getElementById('regPassword').value;
+
+      if (!realName || !email || !password) return;
+
+      const btn = document.getElementById('btnRegSubmit');
+      btn.disabled = true;
+      btn.textContent = '正在註冊並發送驗證信...';
+
+      const fbRes = window.SaaSBridge ? await window.SaaSBridge.tryFirebaseEmailRegister(email, password) : { mode: 'simulated' };
+      btn.disabled = false;
+      btn.innerHTML = `<i data-lucide="user-check" class="w-4 h-4"></i> 註冊並發送驗證信`;
+
+      if (fbRes.error) {
+        showAuthBanner(`⚠️ ${fbRes.error}`, 'red');
+        return;
+      }
+
+      const isCreator = email === CREATOR_ADMIN_EMAIL;
+      const nowStr = new Date().toLocaleString('zh-TW', { hour12: false });
+      const newMember = {
+        email,
+        realName,
+        identity,
+        role: isCreator ? 'admin' : 'user',
+        isCreator,
+        // Double Opt-in：新註冊時預設為 false (未驗證)，並強制維持登出狀態
+        emailVerified: false,
+        createdAt: nowStr,
+        createdTimestamp: Date.now(),
+        loginCount: 0,
+        passwordHash: password,
+        history: [
+          `${nowStr} - 註冊帳號 (${identity})，系統已自動觸發 sendEmailVerification 發送驗證信並強制登出待驗證`
+        ]
+      };
+
+      const existingIdx = saasMembers.findIndex(m => m.email.toLowerCase() === email);
+      if (existingIdx >= 0) {
+        saasMembers[existingIdx] = { ...saasMembers[existingIdx], ...newMember };
+      } else {
+        saasMembers.unshift(newMember);
+      }
+      if (window.SaaSBridge) await window.SaaSBridge.saveMemberDoc(newMember);
+
+      // 切換回登入視窗，但保持未登入，並以綠字提示「請至信箱點擊驗證」與預覽模擬驗證連結
+      switchAuthMode('login');
+      document.getElementById('loginEmail').value = email;
+      showAuthBanner(`
+        <div class="space-y-2">
+          <p class="text-emerald-300 font-black flex items-center gap-1.5">
+            <i data-lucide="check-circle-2" class="w-4 h-4"></i> 註冊成功！請至信箱點擊驗證（系統已發送驗證信並自動登出）
+          </p>
+          <p class="text-[11px] text-amber-200 font-normal">
+            💡 溫馨提醒：註冊確認信有時會跑到「垃圾郵件匣」，請記得前往確認唷！
+          </p>
+          <div class="pt-1">
+            <button type="button" onclick="simulateEmailVerifyClick('${email}')" class="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-black shadow transition">
+              ✉️ [預覽測試專用] 點此模擬已在信箱點擊驗證連結 (${email})
+            </button>
+          </div>
+        </div>
+      `, 'green');
+    }
+
+    // 模擬使用者在信箱中點擊驗證信連結
+    async function simulateEmailVerifyClick(email) {
+      const target = saasMembers.find(m => m.email.toLowerCase() === email.toLowerCase());
+      if (target) {
+        target.emailVerified = true;
+        const nowStr = new Date().toLocaleString('zh-TW', { hour12: false });
+        target.history = target.history || [];
+        target.history.unshift(`${nowStr} - 完成信箱驗證 (emailVerified = true)`);
+        if (window.SaaSBridge) await window.SaaSBridge.saveMemberDoc(target);
+      }
+      showAuthBanner(`✅ 信箱【${email}】已完成 Double Opt-in 驗證！現在請輸入密碼登入系統。`, 'green');
+      showToast('信箱驗證完成！您現在可以立即登入。', 'success');
+    }
+
+    // 登入：嚴格檢查 emailVerified，若為 false 阻擋登入並給予紅字警告
+    async function handleEmailLogin(e) {
+      e.preventDefault();
+      const email = document.getElementById('loginEmail').value.trim().toLowerCase();
+      const password = document.getElementById('loginPassword').value;
+      if (!email || !password) return;
+
+      const btn = document.getElementById('btnLoginSubmit');
+      btn.disabled = true;
+      btn.textContent = '安全驗證中...';
+
+      const fbRes = window.SaaSBridge ? await window.SaaSBridge.tryFirebaseEmailLogin(email, password) : { mode: 'simulated' };
+      btn.disabled = false;
+      btn.innerHTML = `<i data-lucide="log-in" class="w-4 h-4"></i> 立即登入系統`;
+
+      if (fbRes.unverified) {
+        showAuthBanner(`
+          <div class="space-y-2">
+            <p class="text-rose-300 font-black">❌ 登入失敗：您的信箱尚未完成驗證 (emailVerified 為 false)！請先至信箱點擊驗證信。</p>
+            <p class="text-[11px] text-amber-200">溫馨提醒：註冊確認信有時會跑到「垃圾郵件匣」，請記得前往確認唷！</p>
+          </div>
+        `, 'red');
+        return;
+      }
+
+      let member = saasMembers.find(m => m.email.toLowerCase() === email);
+
+      // 若是創作者專屬信箱首次直接登入，自動建立最高權限創作者檔案
+      if (!member && email === CREATOR_ADMIN_EMAIL) {
+        const nowStr = new Date().toLocaleString('zh-TW', { hour12: false });
+        member = {
+          email: CREATOR_ADMIN_EMAIL,
+          realName: 'TONY 楊文澤 老師',
+          identity: 'TONY老師學員',
+          role: 'admin',
+          isCreator: true,
+          emailVerified: true,
+          createdAt: nowStr,
+          createdTimestamp: Date.now(),
+          loginCount: 0,
+          passwordHash: password,
+          history: [`${nowStr} - 系統創作者最高權限帳號自動啟用`]
+        };
+        saasMembers.unshift(member);
+      }
+
+      if (!member) {
+        showAuthBanner(`❌ 找不到此信箱【${email}】的註冊紀錄，請先切換至「註冊新帳號」進行註冊！`, 'red');
+        return;
+      }
+
+      if (fbRes.mode === 'simulated' && member.passwordHash && member.passwordHash !== password && email !== CREATOR_ADMIN_EMAIL) {
+        showAuthBanner(`❌ 密碼輸入錯誤，請重新輸入或點擊「忘記密碼」！`, 'red');
+        return;
+      }
+
+      // 嚴格 Double Opt-in 檢查：若 emailVerified === false 則紅字警告阻擋登入
+      if (!member.emailVerified && email !== CREATOR_ADMIN_EMAIL) {
+        showAuthBanner(`
+          <div class="space-y-2">
+            <p class="text-rose-300 font-black">🚫 阻擋登入：您的信箱 (${email}) 尚未通過驗證 (emailVerified = false)！請先至信箱點擊驗證連結。</p>
+            <p class="text-[11px] text-amber-200 font-normal">溫馨提醒：註冊確認信有時會跑到「垃圾郵件匣」，請記得前往確認唷！</p>
+            <button type="button" onclick="simulateEmailVerifyClick('${email}')" class="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-black shadow transition">
+              ✉️ [預覽測試專用] 點此立即完成信箱驗證
+            </button>
+          </div>
+        `, 'red');
+        return;
+      }
+
+      // RBAC 強制規則：mindnodeai@gmail.com 永遠為 admin 且設定為系統創作者
+      if (email === CREATOR_ADMIN_EMAIL) {
+        member.role = 'admin';
+        member.isCreator = true;
+        member.emailVerified = true;
+      }
+
+      completeLoginSession(member, 'Email 驗證登入');
+    }
+
+    // 忘記密碼
+    async function handleForgotPassword(e) {
+      e.preventDefault();
+      const email = document.getElementById('forgotEmail').value.trim().toLowerCase();
+      if (!email) return;
+
+      if (window.SaaSBridge) await window.SaaSBridge.tryFirebasePasswordReset(email);
+      showAuthBanner(`
+        <div class="space-y-1.5">
+          <p class="text-emerald-300 font-black">✅ 已發送密碼重設信至【${email}】！請至信箱點擊連結重設密碼。</p>
+          <p class="text-[11px] text-amber-200">溫馨提醒：註冊確認信與密碼重設信有時會跑到「垃圾郵件匣」，請記得前往確認唷！</p>
+        </div>
+      `, 'green');
+    }
+
+    // Google 帳號快速登入
+    async function handleGoogleLogin() {
+      const fbRes = window.SaaSBridge ? await window.SaaSBridge.tryFirebaseGooglePopup() : { mode: 'simulated' };
+      if (fbRes.mode === 'firebase_real' && fbRes.user) {
+        const email = fbRes.user.email.toLowerCase();
+        const isCreator = email === CREATOR_ADMIN_EMAIL;
+        let member = saasMembers.find(m => m.email.toLowerCase() === email);
+        const nowStr = new Date().toLocaleString('zh-TW', { hour12: false });
+        if (!member) {
+          member = {
+            email,
+            realName: fbRes.user.realName,
+            identity: 'TONY老師學員',
+            role: isCreator ? 'admin' : 'user',
+            isCreator,
+            emailVerified: true,
+            createdAt: nowStr,
+            createdTimestamp: Date.now(),
+            loginCount: 0,
+            history: [`${nowStr} - 透過 Google OAuth 驗證註冊並登入`]
+          };
+          saasMembers.unshift(member);
+        }
+        completeLoginSession(member, 'Google 帳號登入');
+      } else {
+        // 預覽環境沙盒不支援外部 OAuth 彈窗時，提供一鍵選擇 Google 帳號登入模擬器
+        openGoogleQuickSelectPrompt();
+      }
+    }
+
+    function openGoogleQuickSelectPrompt() {
+      showAuthBanner(`
+        <div class="space-y-2.5">
+          <p class="text-indigo-200 font-black">🌐 請選擇要透過 Google 授權登入的帳號：</p>
+          <div class="grid grid-cols-1 gap-2">
+            <button type="button" onclick="quickGoogleSignInAs('${CREATOR_ADMIN_EMAIL}', 'TONY 楊文澤 老師', 'TONY老師學員')" class="w-full py-2 px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/50 text-amber-200 text-left text-xs font-bold flex items-center justify-between">
+              <span>👑 TONY 老師創作者帳號 (mindnodeai@gmail.com)</span>
+              <span class="px-2 py-0.5 rounded bg-amber-400 text-slate-950 text-[10px] font-black">最高 ADMIN</span>
+            </button>
+            <button type="button" onclick="quickGoogleSignInAs('vip.student@tonystudio.tw', '陳冠宇 (Google)', 'TONY老師學員')" class="w-full py-2 px-3 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-400/40 text-indigo-200 text-left text-xs font-bold flex items-center justify-between">
+              <span>🎓 陳冠宇 (vip.student@tonystudio.tw)</span>
+              <span class="px-2 py-0.5 rounded bg-indigo-500/40 text-white text-[10px]">USER 學員</span>
+            </button>
+          </div>
+        </div>
+      `, 'green');
+    }
+
+    function quickGoogleSignInAs(email, realName, identity) {
+      const lower = email.toLowerCase();
+      const isCreator = lower === CREATOR_ADMIN_EMAIL;
+      let member = saasMembers.find(m => m.email.toLowerCase() === lower);
+      const nowStr = new Date().toLocaleString('zh-TW', { hour12: false });
+      if (!member) {
+        member = {
+          email: lower,
+          realName,
+          identity,
+          role: isCreator ? 'admin' : 'user',
+          isCreator,
+          emailVerified: true,
+          createdAt: nowStr,
+          createdTimestamp: Date.now(),
+          loginCount: 0,
+          history: [`${nowStr} - 透過 Google 帳號授權註冊`]
+        };
+        saasMembers.unshift(member);
+      }
+      if (isCreator) {
+        member.role = 'admin';
+        member.isCreator = true;
+      }
+      completeLoginSession(member, 'Google 帳號授權登入');
+    }
+
+    async function completeLoginSession(member, methodLabel) {
+      const nowStr = new Date().toLocaleString('zh-TW', { hour12: false });
+      member.loginCount = (Number(member.loginCount) || 0) + 1;
+      member.history = member.history || [];
+      member.history.unshift(`${nowStr} - 透過【${methodLabel}】成功進入系統 (累計第 ${member.loginCount} 次登入)`);
+
+      if (member.email.toLowerCase() === CREATOR_ADMIN_EMAIL) {
+        member.role = 'admin';
+        member.isCreator = true;
+      }
+
+      currentAuthUser = member;
+      if (window.SaaSBridge) await window.SaaSBridge.saveMemberDoc(member);
+
+      // 解除登入閘門，顯示主程式與對應 RBAC 按鈕
+      document.getElementById('authGateOverlay').classList.add('hidden');
+      document.getElementById('headerUserBox').classList.remove('hidden');
+      document.getElementById('headerUserBox').classList.add('flex');
+      document.getElementById('headerUserName').textContent = member.realName;
+      document.getElementById('headerUserEmail').textContent = member.email;
+
+      const roleBadge = document.getElementById('headerUserRoleBadge');
+      const adminBtn = document.getElementById('btnAdminPortal');
+
+      if (member.role === 'admin') {
+        roleBadge.textContent = member.isCreator ? '系統創作者 ADMIN' : 'ADMIN';
+        roleBadge.className = 'text-[10px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-black';
+        adminBtn.classList.remove('hidden');
+      } else {
+        roleBadge.textContent = 'USER';
+        roleBadge.className = 'text-[10px] px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-bold';
+        adminBtn.classList.add('hidden');
+      }
+
+      renderAll();
+      renderAdminDashboard();
+      showToast(`歡迎回來，${member.realName}！(${member.role === 'admin' ? '最高管理員權限' : member.identity})`, 'success');
+    }
+
+    function handleUserLogout() {
+      currentAuthUser = null;
+      document.getElementById('authGateOverlay').classList.remove('hidden');
+      document.getElementById('headerUserBox').classList.add('hidden');
+      document.getElementById('btnAdminPortal').classList.add('hidden');
+      hideAuthBanner();
+      showToast('您已安全登出系統', 'info');
+    }
+
+    // ==================== 1.3 專屬管理者後台、商業數據 CSV 匯出與 AI 分析報告輸出 Word ====================
+    function openAdminDashboardModal() {
+      if (!currentAuthUser || currentAuthUser.role !== 'admin') {
+        showToast('權限不足：僅限 Admin 管理員進入後台！', 'error');
+        return;
+      }
+      // 預設起訖時間
+      const startInput = document.getElementById('reportStartDate');
+      const endInput = document.getElementById('reportEndDate');
+      if (!startInput.value) startInput.value = '2026-01-01';
+      if (!endInput.value) endInput.value = new Date().toISOString().slice(0, 10);
+
+      renderAdminDashboard();
+      document.getElementById('adminDashboardModal').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeAdminDashboardModal() {
+      document.getElementById('adminDashboardModal').classList.add('hidden');
+    }
+
+    function renderAdminDashboard() {
+      const total = saasMembers.length;
+      const students = saasMembers.filter(m => m.identity === 'TONY老師學員').length;
+      const guests = total - students;
+      const admins = saasMembers.filter(m => m.role === 'admin').length;
+      const totalLogins = saasMembers.reduce((s, m) => s + (Number(m.loginCount) || 0), 0);
+
+      const elTotal = document.getElementById('adminStatTotalMembers');
+      if (!elTotal) return;
+      elTotal.textContent = `${total} 人`;
+      document.getElementById('adminStatIdentitySplit').textContent = `${students} 學員 / ${guests} 訪客`;
+      document.getElementById('adminStatAdmins').textContent = `${admins} 位`;
+      document.getElementById('adminStatTotalLogins').textContent = `${totalLogins} 次`;
+
+      const tbody = document.getElementById('adminMembersTableBody');
+      tbody.innerHTML = saasMembers.map(m => {
+        const isCreator = m.email.toLowerCase() === CREATOR_ADMIN_EMAIL || m.isCreator;
+        return `
+          <tr class="hover:bg-slate-800/40 transition">
+            <td class="py-3 px-2.5 font-bold text-white whitespace-nowrap">
+              <div class="flex items-center gap-1.5">
+                <span>${m.realName}</span>
+                ${isCreator ? '<span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-black">👑 系統創作者</span>' : ''}
+              </div>
+            </td>
+            <td class="py-3 px-2.5 font-mono text-xs text-slate-300">${m.email}</td>
+            <td class="py-3 px-2.5">
+              <span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${m.identity === 'TONY老師學員' ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' : 'bg-slate-800 text-slate-300'}">${m.identity}</span>
+            </td>
+            <td class="py-3 px-2.5 text-xs text-slate-400 whitespace-nowrap">${m.createdAt}</td>
+            <td class="py-3 px-2.5 text-center font-mono font-bold text-emerald-400">${m.loginCount || 0}</td>
+            <td class="py-3 px-2.5 text-center">
+              ${m.role === 'admin'
+                ? '<span class="px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-black">ADMIN 管理員</span>'
+                : '<span class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 text-xs font-bold">USER 一般會員</span>'}
+            </td>
+            <td class="py-3 px-2.5 text-right whitespace-nowrap space-x-1">
+              <button onclick="viewMemberHistory('${m.email}')" class="px-2.5 py-1 rounded-lg bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-700/60 text-xs font-bold transition">
+                歷史紀錄
+              </button>
+              ${isCreator ? `
+                <span class="px-2.5 py-1 rounded-lg bg-slate-800/70 text-amber-400/90 text-[11px] font-bold border border-amber-500/20">永久最高權限保護</span>
+              ` : `
+                <button onclick="toggleMemberRole('${m.email}')" class="px-2.5 py-1 rounded-lg text-xs font-bold transition ${m.role === 'admin' ? 'bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700' : 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40'}">
+                  ${m.role === 'admin' ? '降級為 User' : '升級為 Admin'}
+                </button>
+                <button onclick="confirmDeleteMember('${m.email}')" class="px-2.5 py-1 rounded-lg bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-800 text-xs font-bold transition">
+                  刪除
+                </button>
+              `}
+            </td>
+          </tr>
+        `;
+      }).join('');
+      lucide.createIcons();
+    }
+
+    async function toggleMemberRole(email) {
+      if (email.toLowerCase() === CREATOR_ADMIN_EMAIL) {
+        showToast('系統創作者帳號受最高權限保護，不可降維！', 'warn');
+        return;
+      }
+      const member = saasMembers.find(m => m.email.toLowerCase() === email.toLowerCase());
+      if (!member) return;
+      member.role = member.role === 'admin' ? 'user' : 'admin';
+      const nowStr = new Date().toLocaleString('zh-TW', { hour12: false });
+      member.history = member.history || [];
+      member.history.unshift(`${nowStr} - 管理員將權限調整為【${member.role.toUpperCase()}】`);
+      if (window.SaaSBridge) await window.SaaSBridge.saveMemberDoc(member);
+      renderAdminDashboard();
+      showToast(`已將「${member.realName}」權限更新為 ${member.role.toUpperCase()}`, 'success');
+    }
+
+    function confirmDeleteMember(email) {
+      if (email.toLowerCase() === CREATOR_ADMIN_EMAIL) {
+        showToast('系統創作者帳號受最高權限保護，不可刪除！', 'error');
+        return;
+      }
+      askConfirm(`確定要永久刪除會員【${email}】嗎？此操作無法復原。`, async () => {
+        saasMembers = saasMembers.filter(m => m.email.toLowerCase() !== email.toLowerCase());
+        if (window.SaaSBridge) await window.SaaSBridge.removeMemberDoc(email);
+        renderAdminDashboard();
+        showToast(`已刪除會員：${email}`, 'info');
+      });
+    }
+
+    function viewMemberHistory(email) {
+      const member = saasMembers.find(m => m.email.toLowerCase() === email.toLowerCase());
+      if (!member) return;
+      const drawer = document.getElementById('memberHistoryDrawer');
+      const title = document.getElementById('memberHistoryTitle');
+      const list = document.getElementById('memberHistoryList');
+
+      title.innerHTML = `<i data-lucide="history" class="w-4 h-4"></i> 會員歷史軌跡：${member.realName} (${member.email})`;
+      const logs = member.history && member.history.length > 0 ? member.history : ['尚無詳細歷史紀錄'];
+      list.innerHTML = logs.map(item => `<div class="py-1.5 px-3 rounded-xl bg-slate-900/90 border border-slate-800">• ${item}</div>`).join('');
+      drawer.classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    // 5. 商業數據匯出：自動加上 \uFEFF BOM 確保 Excel 繁體中文不亂碼
+    function exportMembersCSV() {
+      let csv = '\uFEFF真实姓名,電子郵件(Email),身分屬性,系統權限,是否為創作者,信箱驗證狀態,註冊時間,累計登入次數,最新歷史紀錄\n';
+      saasMembers.forEach(m => {
+        const latestLog = (m.history && m.history[0]) ? m.history[0].replace(/"/g, '""') : '';
+        csv += `"${m.realName}","${m.email}","${m.identity}","${m.role.toUpperCase()}","${m.isCreator ? '系統創作者' : '一般'}","${m.emailVerified ? '已驗證' : '未驗證'}","${m.createdAt}",${m.loginCount || 0},"${latestLog}"\n`;
+      });
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `OmniDraw_SaaS會員名單報表_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      showToast('已匯出含 BOM 標記之繁體中文 CSV 會員名單！', 'success');
+    }
+
+    // 6. AI 分析報告：根據起訖時間產出分析報告，並支援輸出成 WORD 檔 (.doc)
+    let latestAiReportText = '';
+    async function generateAiBusinessReport() {
+      const startStr = document.getElementById('reportStartDate').value || '2026-01-01';
+      const endStr = document.getElementById('reportEndDate').value || new Date().toISOString().slice(0, 10);
+      const startTime = new Date(startStr + 'T00:00:00').getTime();
+      const endTime = new Date(endStr + 'T23:59:59').getTime();
+
+      const filteredMembers = saasMembers.filter(m => {
+        const ts = m.createdTimestamp || Date.now();
+        return ts >= startTime && ts <= endTime;
+      });
+
+      const studentCount = filteredMembers.filter(m => m.identity === 'TONY老師學員').length;
+      const guestCount = filteredMembers.length - studentCount;
+      const totalLogins = filteredMembers.reduce((s, m) => s + (Number(m.loginCount) || 0), 0);
+      const totalDraws = appState.records.length;
+      const redeemedDraws = appState.records.filter(r => r.status === 'redeemed').length;
+
+      const btn = document.getElementById('btnGenerateAiReport');
+      const box = document.getElementById('aiReportOutputBox');
+      btn.disabled = true;
+      btn.textContent = 'AI 深度撰寫報告中...';
+      box.textContent = `正在由 Gemini AI 針對【${startStr} 至 ${endStr}】區間進行商業數據與互動核銷深度分析...`;
+
+      const prompt = `你現在是 TONY 楊文澤資深數位行銷科技顧問的 AI 商業數據分析幕僚。請根據以下【OmniDraw AI 智創雙模抽獎與核銷系統】在「${startStr} 至 ${endStr}」期間的營運數據，撰寫一份結構嚴謹、專業且可直接呈交高階主管的繁體中文商業分析報告（包含：一、執行摘要、二、會員結構與學員轉化分析、三、抽獎互動與核銷閉環成效、四、MarTech 行銷科技優化行動建議）：
+      - 分析區間：${startStr} ~ ${endStr}
+      - 區間新增與活躍會員數：${filteredMembers.length} 人（總會員池：${saasMembers.length} 人）
+      - 身分結構：TONY老師學員 ${studentCount} 人、非學員(一般訪客) ${guestCount} 人
+      - 累計登入活躍次數：${totalLogins} 次
+      - 活動參與抽獎名單：${appState.participants.length} 人
+      - 已抽出獎項紀錄：${totalDraws} 筆（已完成 QR 兌換核銷：${redeemedDraws} 筆）`;
+
+      const aiRes = await callGeminiAPI(prompt, false);
+      btn.disabled = false;
+      btn.innerHTML = `<i data-lucide="sparkles" class="w-4 h-4"></i> 產出 AI 分析報告`;
+      lucide.createIcons();
+
+      if (aiRes && aiRes.text) {
+        latestAiReportText = aiRes.text.trim();
+      } else {
+        latestAiReportText = `【OmniDraw AI 智創雙模抽獎與核銷系統 — 營運分析報告】\n分析區間：${startStr} 至 ${endStr}\n報告生成時間：${new Date().toLocaleString('zh-TW', { hour12: false })}\n平台創作者：TONY 楊文澤 資深數位行銷科技顧問\n\n一、執行摘要 (Executive Summary)\n本區間平台共計納管 ${filteredMembers.length} 位會員（全站累計 ${saasMembers.length} 位），總登入互動達 ${totalLogins} 次。雙模抽獎引擎累計執行 ${totalDraws} 次開獎，現場數位核銷完成 ${redeemedDraws} 筆。\n\n二、會員結構與學員洞察\n- TONY老師學員：${studentCount} 人（具備高度 AI MarTech 工具應用黏著度）\n- 非學員(一般訪客)：${guestCount} 人（具潛在課程與顧問服務轉化價值）\n\n三、活動抽獎與核銷閉環表現\n- 參與者名單規模：${appState.participants.length} 人\n- 核銷完成率：${totalDraws > 0 ? ((redeemedDraws / totalDraws) * 100).toFixed(1) : 0}%\n\n四、顧問策略建議\n建議針對未中獎名單發送專屬數位安慰禮券，並對「非學員(一般訪客)」進行自動化 EDM 二次培育，提升品牌長期留存率。`;
+      }
+      box.textContent = latestAiReportText;
+      showToast('AI 區間商業分析報告已生成！可點擊右側按鈕輸出為 Word 檔。', 'success');
+    }
+
+    function exportAiReportToWord() {
+      const startStr = document.getElementById('reportStartDate').value || '2026-01-01';
+      const endStr = document.getElementById('reportEndDate').value || new Date().toISOString().slice(0, 10);
+      const reportBody = latestAiReportText || document.getElementById('aiReportOutputBox').textContent.trim();
+
+      const wordHtml = `
+        <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+        <head><meta charset='utf-8'><title>OmniDraw AI 商業數據分析報告</title>
+        <style>
+          body { font-family: 'Microsoft JhengHei', sans-serif; line-height: 1.6; color: #1e293b; padding: 24px; }
+          h1 { color: #312e81; border-bottom: 2px solid #f59e0b; padding-bottom: 8px; }
+          .meta { background: #f8fafc; border: 1px solid #cbd5e1; padding: 12px; margin-bottom: 20px; font-size: 13px; }
+          .content { white-space: pre-line; font-size: 14px; }
+          .footer { margin-top: 40px; border-top: 1px solid #cbd5e1; padding-top: 10px; font-size: 12px; color: #64748b; }
+        </style>
+        </head>
+        <body>
+          <h1>OmniDraw AI 智創雙模抽獎與核銷系統 — 商業數據分析報告</h1>
+          <div class="meta">
+            <p><strong>統計起訖時間：</strong> ${startStr} 至 ${endStr}</p>
+            <p><strong>報告產出時間：</strong> ${new Date().toLocaleString('zh-TW', { hour12: false })}</p>
+            <p><strong>平台創作者：</strong> TONY 楊文澤 老師（資深數位行銷科技顧問 / 生成式 AI 創作者 / 創業導師）</p>
+          </div>
+          <div class="content">${reportBody.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+          <div class="footer">© 2020 TonyStudio. 本學習平台由 TONY 楊文澤資深AI科技顧問設計. All Rights Reserved.</div>
+        </body>
+        </html>
+      `;
+
+      const blob = new Blob(['\ufeff', wordHtml], { type: 'application/msword;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `OmniDraw_AI商業分析報告_${startStr}_至_${endStr}.doc`;
+      a.click();
+      showToast('已成功輸出為 Word (.doc) 報告檔案！', 'success');
+    }
+
+    function openTonyProfileModal() {
+      document.getElementById('tonyProfileModal').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeTonyProfileModal() {
+      document.getElementById('tonyProfileModal').classList.add('hidden');
+    }
+
+    // ==================== 1.5 自訂 Toast 通知與確認對話框 ====================
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      const colorMap = {
+        success: 'border-emerald-500/60 bg-slate-900/95 text-emerald-300',
+        warn: 'border-amber-500/60 bg-slate-900/95 text-amber-300',
+        error: 'border-rose-500/60 bg-slate-900/95 text-rose-300',
+        info: 'border-indigo-500/60 bg-slate-900/95 text-indigo-200'
+      };
+      toast.className = `pointer-events-auto px-4 py-3 rounded-2xl border shadow-2xl text-xs font-bold flex items-center justify-between gap-3 animate-pop ${colorMap[type] || colorMap.info}`;
+      toast.innerHTML = `<span>${message}</span>`;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.25s ease';
+        setTimeout(() => toast.remove(), 250);
+      }, 3200);
+    }
+
+    let pendingConfirmCallback = null;
+    function askConfirm(message, onConfirm) {
+      document.getElementById('confirmModalText').textContent = message;
+      pendingConfirmCallback = onConfirm;
+      document.getElementById('confirmModal').classList.remove('hidden');
+    }
+
+    function closeConfirmModal() {
+      document.getElementById('confirmModal').classList.add('hidden');
+      pendingConfirmCallback = null;
+    }
+
+    document.getElementById('confirmModalYesBtn').addEventListener('click', () => {
+      if (typeof pendingConfirmCallback === 'function') pendingConfirmCallback();
+      closeConfirmModal();
+    });
+
+    // ==================== 2. Web Audio 合成音效引擎 ====================
+    const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+    const audioCtx = AudioCtxClass ? new AudioCtxClass() : null;
+
+    function playTone(freq = 440, duration = 0.06, type = 'sine') {
+      if (!soundEnabled || !audioCtx) return;
+      try {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {}
+    }
+
+    function playWinFanfare() {
+      [523.25, 659.25, 783.99, 1046.5].forEach((f, idx) => {
+        setTimeout(() => playTone(f, 0.22, 'triangle'), idx * 110);
+      });
+    }
+
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      document.getElementById('soundBtn').innerHTML = `<i data-lucide="${soundEnabled ? 'volume-2' : 'volume-x'}" class="w-4 h-4"></i>`;
+      lucide.createIcons();
+      showToast(soundEnabled ? '已開啟舞台音效與語音播報' : '已切換為靜音模式', 'info');
+    }
+
+    // ==================== 3. Gemini 3 Flash API 整合引擎 ====================
+    async function callGeminiAPI(promptText, expectJson = false) {
+      const apiKey = customGeminiKey || "";
+      const model = "gemini-3-flash-preview";
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+      const payload = {
+        contents: [{ parts: [{ text: promptText }] }]
+      };
+
+      if (expectJson) {
+        payload.generationConfig = {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "ARRAY",
+            items: {
+              type: "OBJECT",
+              properties: {
+                name: { type: "STRING" },
+                totalQty: { type: "INTEGER" },
+                weight: { type: "INTEGER" }
+              },
+              propertyOrdering: ["name", "totalQty", "weight"]
+            }
+          }
+        };
+      }
+
+      const delays = [1000, 2000, 4000];
+      for (let attempt = 0; attempt <= delays.length; attempt++) {
+        try {
+          const res = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (text) return { text, model };
+        } catch (err) {
+          if (attempt < delays.length) {
+            await new Promise(r => setTimeout(r, delays[attempt]));
+          }
+        }
+      }
+      return null;
+    }
+
+    // ==================== 4. 動態權重抽獎演算法 ====================
+    function pickWeightedItem(items, getWeightFn) {
+      const totalWeight = items.reduce((sum, item) => sum + Math.max(0, getWeightFn(item)), 0);
+      if (totalWeight <= 0) return items[0];
+      let random = Math.random() * totalWeight;
+      for (const item of items) {
+        const w = Math.max(0, getWeightFn(item));
+        if (random < w) return item;
+        random -= w;
+      }
+      return items[items.length - 1];
+    }
+
+    function getEligibleParticipants() {
+      const excludeWinners = document.getElementById('chkExcludeWinners').checked;
+      return appState.participants.filter(p => !excludeWinners || !p.isWinner);
+    }
+
+    function getAvailablePrizes() {
+      return appState.prizes.filter(p => p.remainQty > 0);
+    }
+
+    // ==================== 5. 轉盤繪製與雙模動畫 ====================
+    const WHEEL_COLORS = ['#4f46e5', '#db2777', '#059669', '#d97706', '#7c3aed', '#0284c7', '#e11d48', '#65a30d'];
+
+    function drawWheel() {
+      const canvas = document.getElementById('wheelCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const availPrizes = getAvailablePrizes();
+      const cx = canvas.width / 2;
+      const cy = canvas.height / 2;
+      const radius = cx - 12;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (availPrizes.length === 0) {
+        ctx.fillStyle = '#1e293b';
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = 'bold 18px "Noto Sans TC"';
+        ctx.textAlign = 'center';
+        ctx.fillText('所有獎項皆已抽完', cx, cy);
+        return;
+      }
+
+      const sliceAngle = (Math.PI * 2) / availPrizes.length;
+      availPrizes.forEach((prize, i) => {
+        const start = wheelAngle + i * sliceAngle;
+        const end = start + sliceAngle;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, radius, start, end);
+        ctx.closePath();
+        ctx.fillStyle = WHEEL_COLORS[i % WHEEL_COLORS.length];
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#0f172a';
+        ctx.stroke();
+
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(start + sliceAngle / 2);
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 14px "Noto Sans TC"';
+        const label = prize.name.length > 11 ? prize.name.slice(0, 11) + '…' : prize.name;
+        ctx.fillText(`${label} (${prize.remainQty})`, radius - 22, 5);
+        ctx.restore();
+      });
+    }
+
+    async function triggerDraw() {
+      if (isDrawing) return;
+      const eligibleUsers = getEligibleParticipants();
+      const availPrizes = getAvailablePrizes();
+
+      if (eligibleUsers.length === 0) {
+        showToast('目前沒有符合資格的待抽參加者！請取消勾選「排除已中獎者」或重置名單狀態。', 'warn');
+        return;
+      }
+      if (availPrizes.length === 0) {
+        showToast('所有獎品庫存皆已抽完！請至「獎品與權重」補充庫存。', 'warn');
+        return;
+      }
+
+      isDrawing = true;
+      const useBonus = document.getElementById('chkUseBonusWeight').checked;
+      const prizeMode = document.getElementById('prizeSelectMode').value;
+
+      // 1. 決定幸運得主
+      const winner = pickWeightedItem(eligibleUsers, u => useBonus ? (Number(u.bonus) || 1) : 1);
+
+      // 2. 決定抽中獎項
+      let chosenPrize = null;
+      if (prizeMode === 'specific') {
+        const targetId = document.getElementById('targetPrizeSelect').value;
+        chosenPrize = availPrizes.find(p => p.id === targetId) || availPrizes[0];
+      } else {
+        chosenPrize = pickWeightedItem(availPrizes, p => Number(p.weight) || 1);
+      }
+
+      // 3. 執行視覺動畫
+      if (currentStageMode === 'wheel') {
+        await animateWheelToPrize(availPrizes, chosenPrize);
+      } else {
+        await animateSlotMachine(eligibleUsers, availPrizes, winner, chosenPrize);
+      }
+
+      // 4. 扣減庫存與寫入紀錄
+      chosenPrize.remainQty = Math.max(0, chosenPrize.remainQty - 1);
+      winner.isWinner = true;
+
+      const redeemCode = 'OD-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+      const newRecord = {
+        id: 'rec_' + Date.now(),
+        timestamp: new Date().toLocaleString('zh-TW', { hour12: false }),
+        redeemCode,
+        winnerId: winner.id,
+        winnerName: winner.name,
+        winnerDept: winner.dept,
+        prizeId: chosenPrize.id,
+        prizeName: chosenPrize.name,
+        prizeImg: chosenPrize.imageUrl,
+        status: 'pending', // 'pending' | 'redeemed' | 'forfeited'
+        aiMessage: `恭喜 ${winner.dept} 的 ${winner.name} 幸運抱走【${chosenPrize.name}】！全場掌聲尖叫聲刷起來！`
+      };
+
+      lastRecordId = newRecord.id;
+      appState.records.unshift(newRecord);
+      saveState();
+
+      playWinFanfare();
+      confetti({ particleCount: 110, spread: 80, origin: { y: 0.6 } });
+      showWinnerModal(newRecord);
+      isDrawing = false;
+    }
+
+    function animateWheelToPrize(availPrizes, targetPrize) {
+      return new Promise(resolve => {
+        const idx = availPrizes.findIndex(p => p.id === targetPrize.id);
+        const sliceAngle = (Math.PI * 2) / availPrizes.length;
+        const targetSliceCenter = idx * sliceAngle + sliceAngle / 2;
+        const desiredEndAngle = (Math.PI * 1.5) - targetSliceCenter;
+        const extraSpins = Math.PI * 2 * 6;
+        const startAngle = wheelAngle % (Math.PI * 2);
+        const totalDelta = extraSpins + ((desiredEndAngle - startAngle + Math.PI * 4) % (Math.PI * 2));
+
+        const duration = 3600;
+        const startTime = performance.now();
+        let lastTickSlice = -1;
+
+        function frame(now) {
+          const t = Math.min(1, (now - startTime) / duration);
+          const easeOut = 1 - Math.pow(1 - t, 4);
+          wheelAngle = startAngle + totalDelta * easeOut;
+          drawWheel();
+
+          const currentSlice = Math.floor(((wheelAngle % (Math.PI * 2)) / sliceAngle));
+          if (currentSlice !== lastTickSlice) {
+            playTone(580, 0.03, 'triangle');
+            lastTickSlice = currentSlice;
+          }
+
+          if (t < 1) requestAnimationFrame(frame);
+          else resolve();
+        }
+        requestAnimationFrame(frame);
+      });
+    }
+
+    function animateSlotMachine(users, prizes, winner, chosenPrize) {
+      return new Promise(resolve => {
+        const rDept = document.getElementById('reel-dept');
+        const rName = document.getElementById('reel-name');
+        const rPrize = document.getElementById('reel-prize');
+        let ticks = 0;
+        const maxTicks = 32;
+
+        const timer = setInterval(() => {
+          ticks++;
+          playTone(300 + ticks * 12, 0.04, 'square');
+          const randU = users[Math.floor(Math.random() * users.length)];
+          const randP = prizes[Math.floor(Math.random() * prizes.length)];
+
+          if (ticks < 20) rDept.textContent = randU.dept || '貴賓席';
+          else if (ticks === 20) rDept.textContent = winner.dept || '貴賓席';
+
+          if (ticks < 26) rName.textContent = randU.name;
+          else if (ticks === 26) rName.textContent = winner.name;
+
+          if (ticks < maxTicks) rPrize.textContent = randP.name;
+          else {
+            rPrize.textContent = chosenPrize.name;
+            clearInterval(timer);
+            setTimeout(resolve, 350);
+          }
+        }, 80);
+      });
+    }
+
+    // ==================== 6. 中獎彈窗、AI 主持與語音播報 ====================
+    async function showWinnerModal(record) {
+      document.getElementById('modalRedeemBadge').innerHTML = `<span>兌換碼：${record.redeemCode}</span><i data-lucide="copy" class="w-3 h-3"></i>`;
+      document.getElementById('modalWinnerName').textContent = record.winnerName;
+      document.getElementById('modalWinnerDept').textContent = record.winnerDept || '特邀貴賓';
+      document.getElementById('modalPrizeName').textContent = record.prizeName;
+      document.getElementById('modalPrizeImg').src = record.prizeImg || 'https://placehold.co/160x160/1e293b/fbbf24?text=PRIZE';
+      document.getElementById('modalAiMessage').textContent = record.aiMessage;
+
+      const qrBox = document.getElementById('modalQrBox');
+      qrBox.innerHTML = '';
+      new QRCode(qrBox, { text: record.redeemCode, width: 64, height: 64 });
+
+      document.getElementById('winnerModal').classList.remove('hidden');
+      lucide.createIcons();
+
+      if (document.getElementById('chkAiHost').checked) {
+        const prompt = `你現在是嗨翻全場的尾牙與活動王牌主持人。請用繁體中文、45字以內，為剛抽中【${record.prizeName}】的「${record.winnerDept} - ${record.winnerName}」講一段幽默、熱血又帶點驚喜感的頒獎賀詞！`;
+        const aiRes = await callGeminiAPI(prompt, false);
+        if (aiRes && aiRes.text) {
+          record.aiMessage = aiRes.text.trim();
+          document.getElementById('modalAiMessage').textContent = record.aiMessage;
+          document.getElementById('aiModelUsedTag').textContent = aiRes.model;
+          saveState();
+        }
+        if (soundEnabled && 'speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+          const utter = new SpeechSynthesisUtterance(record.aiMessage);
+          utter.lang = 'zh-TW';
+          utter.rate = 1.08;
+          window.speechSynthesis.speak(utter);
+        }
+      }
+    }
+
+    function copyTextToClipboard(text) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+        showToast(`已複製兌換碼：${text}`, 'success');
+      } catch (e) {
+        showToast('複製失敗，請手動記下序號', 'warn');
+      }
+      document.body.removeChild(ta);
+    }
+
+    function copyRedeemCodeFromModal() {
+      const rec = appState.records.find(r => r.id === lastRecordId);
+      if (rec) copyTextToClipboard(rec.redeemCode);
+    }
+
+    function closeWinnerModal() {
+      document.getElementById('winnerModal').classList.add('hidden');
+    }
+
+    function forfeitCurrentWinner() {
+      if (!lastRecordId) return;
+      forfeitRecord(lastRecordId);
+      closeWinnerModal();
+    }
+
+    // ==================== 7. 獎品管理、修改編輯、100% 比例檢核與 AI 獎池精算 ====================
+    function syncRemainQtyOnTotalChange() {
+      const editingId = document.getElementById('editingPrizeId').value;
+      const totalVal = Math.max(1, parseInt(document.getElementById('prizeQtyInput').value) || 1);
+      const remainInput = document.getElementById('prizeRemainInput');
+      if (!editingId) {
+        remainInput.value = totalVal;
+      } else if (parseInt(remainInput.value) > totalVal) {
+        remainInput.value = totalVal;
+      }
+    }
+
+    // 依最大餘數法將所有獎項比例精準正規化配平至 100%
+    function normalizePrizesArrayTo100(prizeList) {
+      if (!Array.isArray(prizeList) || prizeList.length === 0) return;
+      const total = prizeList.reduce((s, p) => s + Math.max(0, Number(p.weight) || 0), 0);
+      if (total <= 0) {
+        const base = Math.floor(100 / prizeList.length);
+        let rem = 100 - base * prizeList.length;
+        prizeList.forEach((p, idx) => {
+          p.weight = base + (idx < rem ? 1 : 0);
+        });
+        return;
+      }
+      const rawQuotas = prizeList.map((p, idx) => {
+        const exact = (Math.max(0, Number(p.weight) || 0) / total) * 100;
+        const floored = Math.floor(exact);
+        return { idx, floored, remainder: exact - floored };
+      });
+      let currentSum = rawQuotas.reduce((s, q) => s + q.floored, 0);
+      let diff = 100 - currentSum;
+      rawQuotas.sort((a, b) => b.remainder - a.remainder);
+      for (let i = 0; i < diff && i < rawQuotas.length; i++) {
+        rawQuotas[i].floored += 1;
+      }
+      rawQuotas.forEach(q => {
+        prizeList[q.idx].weight = q.floored;
+      });
+    }
+
+    function normalizeAllPrizesTo100() {
+      if (appState.prizes.length === 0) {
+        showToast('目前獎池無獎品可供配平！', 'warn');
+        return;
+      }
+      normalizePrizesArrayTo100(appState.prizes);
+      saveState();
+      showToast('已自動將所有獎品設定比例精準配平至加總 100%！', 'success');
+    }
+
+    function updateSinglePrizeWeightInline(prizeId, newWeightVal) {
+      const target = appState.prizes.find(p => p.id === prizeId);
+      if (!target) return;
+      target.weight = Math.max(0, Math.min(100, Number(newWeightVal) || 0));
+      saveState();
+      const sum = appState.prizes.reduce((s, p) => s + (Number(p.weight) || 0), 0);
+      if (Math.round(sum * 10) / 10 === 100) {
+        showToast(`已更新「${target.name}」比例，目前總和剛好為 100%！`, 'success');
+      } else {
+        showToast(`已更新比例，目前總和為 ${Math.round(sum * 10) / 10}%（可點擊一鍵配平至 100%）`, 'warn');
+      }
+    }
+
+    function startEditPrize(id) {
+      const p = appState.prizes.find(item => item.id === id);
+      if (!p) return;
+      document.getElementById('editingPrizeId').value = p.id;
+      document.getElementById('prizeNameInput').value = p.name;
+      document.getElementById('prizeQtyInput').value = p.totalQty;
+      document.getElementById('prizeRemainInput').value = p.remainQty;
+      document.getElementById('prizeWeightInput').value = p.weight;
+      document.getElementById('prizeImageUrlInput').value = p.imageUrl && !p.imageUrl.startsWith('data:') ? p.imageUrl : '';
+
+      document.getElementById('prizeFormTitle').innerHTML = `<i data-lucide="edit-3" class="w-4 h-4 text-amber-400"></i> 編輯修改獎品項目`;
+      document.getElementById('prizeEditBadge').classList.remove('hidden');
+      document.getElementById('btnSavePrizeText').textContent = '儲存修改';
+      document.getElementById('btnSavePrize').className = 'flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 font-black text-slate-950 flex items-center justify-center gap-1.5 transition';
+      document.getElementById('btnCancelPrizeEdit').classList.remove('hidden');
+      document.getElementById('prizeFormCard').classList.add('border-amber-500/60');
+      lucide.createIcons();
+      document.getElementById('prizeFormCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function cancelEditPrize() {
+      document.getElementById('editingPrizeId').value = '';
+      document.getElementById('prizeNameInput').value = '';
+      document.getElementById('prizeQtyInput').value = '1';
+      document.getElementById('prizeRemainInput').value = '1';
+      document.getElementById('prizeWeightInput').value = '10';
+      document.getElementById('prizeImageUrlInput').value = '';
+      document.getElementById('prizeImageFile').value = '';
+
+      document.getElementById('prizeFormTitle').innerHTML = `<i data-lucide="plus-circle" class="w-4 h-4"></i> 新增獎品項目`;
+      document.getElementById('prizeEditBadge').classList.add('hidden');
+      document.getElementById('btnSavePrizeText').textContent = '儲存並加入獎池';
+      document.getElementById('btnSavePrize').className = 'flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-bold text-white flex items-center justify-center gap-1.5 transition';
+      document.getElementById('btnCancelPrizeEdit').classList.add('hidden');
+      document.getElementById('prizeFormCard').classList.remove('border-amber-500/60');
+      lucide.createIcons();
+    }
+
+    async function savePrizeForm() {
+      const editingId = document.getElementById('editingPrizeId').value;
+      const name = document.getElementById('prizeNameInput').value.trim();
+      const totalQty = Math.max(1, parseInt(document.getElementById('prizeQtyInput').value) || 1);
+      const remainRaw = parseInt(document.getElementById('prizeRemainInput').value);
+      const remainQty = isNaN(remainRaw) ? totalQty : Math.max(0, Math.min(totalQty, remainRaw));
+      const weight = Math.max(0, Math.min(100, Number(document.getElementById('prizeWeightInput').value) || 0));
+      const urlInput = document.getElementById('prizeImageUrlInput').value.trim();
+      const fileInput = document.getElementById('prizeImageFile');
+      const autoNormalize = document.getElementById('chkAutoNormalizePrize').checked;
+
+      if (!name) {
+        showToast('請輸入獎品名稱！', 'warn');
+        return;
+      }
+
+      let uploadedDataUrl = null;
+      if (fileInput.files && fileInput.files[0]) {
+        const file = fileInput.files[0];
+        uploadedDataUrl = await new Promise(res => {
+          const reader = new FileReader();
+          reader.onload = e => res(e.target.result);
+          reader.readAsDataURL(file);
+        });
+      }
+
+      if (editingId) {
+        const target = appState.prizes.find(p => p.id === editingId);
+        if (target) {
+          target.name = name;
+          target.totalQty = totalQty;
+          target.remainQty = remainQty;
+          target.weight = weight;
+          if (uploadedDataUrl) {
+            target.imageUrl = uploadedDataUrl;
+          } else if (urlInput) {
+            target.imageUrl = urlInput;
+          }
+        }
+        if (autoNormalize) normalizePrizesArrayTo100(appState.prizes);
+        cancelEditPrize();
+        saveState();
+        checkAndNotifyWeightSum(`已成功修改獎品：${name}`);
+      } else {
+        const imageUrl = uploadedDataUrl || urlInput || 'https://images.unsplash.com/photo-1513885535751-8b9238bd345a?w=200&q=80';
+        appState.prizes.push({
+          id: 'p_' + Date.now(),
+          name, totalQty, remainQty, weight, imageUrl
+        });
+        if (autoNormalize) normalizePrizesArrayTo100(appState.prizes);
+        cancelEditPrize();
+        saveState();
+        checkAndNotifyWeightSum(`已新增獎品：${name}`);
+      }
+    }
+
+    function checkAndNotifyWeightSum(prefixMsg) {
+      const sum = Math.round(appState.prizes.reduce((s, p) => s + (Number(p.weight) || 0), 0) * 10) / 10;
+      if (sum === 100) {
+        showToast(`${prefixMsg}（目前獎池比例總和為 100% 檢核通過！）`, 'success');
+      } else {
+        const diff = Math.round((100 - sum) * 10) / 10;
+        showToast(`${prefixMsg}（提醒：目前設定比例總和為 ${sum}%，與 100% 尚差 ${diff > 0 ? '+' + diff : diff}%）`, 'warn');
+      }
+    }
+
+    async function generatePrizesWithAI() {
+      const userPrompt = document.getElementById('aiPrizePrompt').value.trim();
+      if (!userPrompt) {
+        showToast('請先輸入您的活動預算與獎項規劃需求！', 'warn');
+        return;
+      }
+      const btn = document.getElementById('btnAiPrizes');
+      btn.disabled = true;
+      btn.textContent = 'AI 精算生成中...';
+
+      const sysPrompt = `請根據以下活動需求規劃抽獎獎池，並嚴格回傳 JSON 陣列格式，每個元素包含: {"name": "獎品名稱", "totalQty": 數量整數, "weight": 比例整數}，且所有項目的 weight 加總必須剛好等於 100。需求：${userPrompt}`;
+      const res = await callGeminiAPI(sysPrompt, true);
+      btn.disabled = false;
+      btn.innerHTML = `<i data-lucide="sparkles" class="w-4 h-4"></i> AI 一鍵自動生成獎品與 100% 機率表`;
+      lucide.createIcons();
+
+      if (!res || !res.text) {
+        showToast('AI 服務連線逾時，請稍後再試或檢查設定！', 'error');
+        return;
+      }
+      try {
+        const list = JSON.parse(res.text);
+        if (Array.isArray(list) && list.length > 0) {
+          appState.prizes = list.map((item, idx) => ({
+            id: 'ai_p_' + Date.now() + '_' + idx,
+            name: item.name,
+            totalQty: Math.max(1, Number(item.totalQty) || 1),
+            remainQty: Math.max(1, Number(item.totalQty) || 1),
+            weight: Math.max(1, Number(item.weight) || 10),
+            imageUrl: 'https://images.unsplash.com/photo-1513885535751-8b9238bd345a?w=200&q=80'
+          }));
+          // 自動強制正規化配平至 100%
+          normalizePrizesArrayTo100(appState.prizes);
+          saveState();
+          showToast(`已成功由 Gemini AI 配置 ${list.length} 項獎品，並自動檢核配平總和為 100%！`, 'success');
+        }
+      } catch (e) {
+        showToast('AI 回傳格式解析失敗，請再試一次。', 'error');
+      }
+    }
+
+    function deletePrize(id) {
+      if (document.getElementById('editingPrizeId').value === id) {
+        cancelEditPrize();
+      }
+      appState.prizes = appState.prizes.filter(p => p.id !== id);
+      if (document.getElementById('chkAutoNormalizePrize')?.checked && appState.prizes.length > 0) {
+        normalizePrizesArrayTo100(appState.prizes);
+      }
+      saveState();
+      checkAndNotifyWeightSum('已移除該獎項');
+    }
+
+    function resetAllPrizeQty() {
+      appState.prizes.forEach(p => p.remainQty = p.totalQty);
+      saveState();
+      showToast('已將所有獎品剩餘庫存補滿！', 'success');
+    }
+
+    // ==================== 8. 參加者名單管理（新增與修改編輯） ====================
+    function startEditParticipant(id) {
+      const u = appState.participants.find(item => item.id === id);
+      if (!u) return;
+      document.getElementById('editingParticipantId').value = u.id;
+      document.getElementById('pNameInput').value = u.name;
+      document.getElementById('pDeptInput').value = u.dept || '一般參加者';
+      document.getElementById('pBonusInput').value = u.bonus || 1;
+      document.getElementById('pWinnerStatusSelect').value = u.isWinner ? 'true' : 'false';
+      document.getElementById('pWinnerStatusBox').classList.remove('hidden');
+
+      document.getElementById('participantFormTitle').innerHTML = `<i data-lucide="user-cog" class="w-4 h-4 text-amber-400"></i> 編輯修改參加者資料`;
+      document.getElementById('participantEditBadge').classList.remove('hidden');
+      document.getElementById('btnSaveParticipantText').textContent = '儲存修改';
+      document.getElementById('btnSaveParticipant').className = 'flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 font-black text-slate-950 flex items-center justify-center gap-1.5 transition';
+      document.getElementById('btnCancelParticipantEdit').classList.remove('hidden');
+      document.getElementById('participantFormCard').classList.add('border-amber-500/60');
+      lucide.createIcons();
+      document.getElementById('participantFormCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function cancelEditParticipant() {
+      document.getElementById('editingParticipantId').value = '';
+      document.getElementById('pNameInput').value = '';
+      document.getElementById('pDeptInput').value = '';
+      document.getElementById('pBonusInput').value = '1';
+      document.getElementById('pWinnerStatusBox').classList.add('hidden');
+
+      document.getElementById('participantFormTitle').innerHTML = `<i data-lucide="user-plus" class="w-4 h-4"></i> 單筆新增參加者`;
+      document.getElementById('participantEditBadge').classList.add('hidden');
+      document.getElementById('btnSaveParticipantText').textContent = '加入名單';
+      document.getElementById('btnSaveParticipant').className = 'flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-bold text-white flex items-center justify-center gap-1.5 transition';
+      document.getElementById('btnCancelParticipantEdit').classList.add('hidden');
+      document.getElementById('participantFormCard').classList.remove('border-amber-500/60');
+      lucide.createIcons();
+    }
+
+    function saveParticipantForm() {
+      const editingId = document.getElementById('editingParticipantId').value;
+      const name = document.getElementById('pNameInput').value.trim();
+      const dept = document.getElementById('pDeptInput').value.trim() || '一般參加者';
+      const bonus = Math.max(1, parseInt(document.getElementById('pBonusInput').value) || 1);
+      if (!name) {
+        showToast('請輸入參加者姓名！', 'warn');
+        return;
+      }
+
+      if (editingId) {
+        const target = appState.participants.find(u => u.id === editingId);
+        if (target) {
+          target.name = name;
+          target.dept = dept;
+          target.bonus = bonus;
+          target.isWinner = document.getElementById('pWinnerStatusSelect').value === 'true';
+        }
+        cancelEditParticipant();
+        saveState();
+        showToast(`已成功更新參加者資料：${name}`, 'success');
+      } else {
+        appState.participants.push({
+          id: 'u_' + Date.now(), name, dept, bonus, isWinner: false
+        });
+        cancelEditParticipant();
+        saveState();
+        showToast(`已加入參加者：${name}`, 'success');
+      }
+    }
+
+    function parseAndAddLines(rawText) {
+      const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      let added = 0;
+      lines.forEach((line, idx) => {
+        const parts = line.split(/[,\t]/).map(s => s.trim());
+        if (!parts[0] || parts[0] === '姓名' || parts[0].toLowerCase() === 'name') return;
+        appState.participants.push({
+          id: 'u_' + Date.now() + '_' + idx,
+          name: parts[0],
+          dept: parts[1] || '一般參加者',
+          bonus: Math.max(1, parseInt(parts[2]) || 1),
+          isWinner: false
+        });
+        added++;
+      });
+      if (added > 0) saveState();
+      return added;
+    }
+
+    function importBatchParticipants() {
+      const text = document.getElementById('batchPasteInput').value;
+      const count = parseAndAddLines(text);
+      document.getElementById('batchPasteInput').value = '';
+      if (count > 0) {
+        showToast(`成功批次匯入 ${count} 位參加者！`, 'success');
+      } else {
+        showToast('未偵測到有效名單資料，請確認格式。', 'warn');
+      }
+    }
+
+    function handleCsvFileUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        const count = parseAndAddLines(ev.target.result);
+        showToast(`從檔案成功匯入 ${count} 位參加者！`, 'success');
+      };
+      reader.readAsText(file, 'UTF-8');
+    }
+
+    function deleteParticipant(id) {
+      if (document.getElementById('editingParticipantId')?.value === id) {
+        cancelEditParticipant();
+      }
+      appState.participants = appState.participants.filter(u => u.id !== id);
+      saveState();
+      showToast('已移除該名參加者', 'info');
+    }
+
+    function resetParticipantsWinnerStatus() {
+      appState.participants.forEach(u => u.isWinner = false);
+      saveState();
+      showToast('已重置全員狀態為「未中獎」！', 'success');
+    }
+
+    function clearAllParticipants() {
+      appState.participants = [];
+      saveState();
+      showToast('已清空所有參加者名單', 'info');
+    }
+
+    function clearAllRecords() {
+      appState.records = [];
+      saveState();
+      showToast('已清空所有歷史中獎與核銷紀錄', 'info');
+    }
+
+    // ==================== 9. 核銷兌換、棄權回補與 CSV 匯出 ====================
+    function toggleRedeemRecord(recId) {
+      const rec = appState.records.find(r => r.id === recId);
+      if (!rec || rec.status === 'forfeited') return;
+      rec.status = rec.status === 'redeemed' ? 'pending' : 'redeemed';
+      saveState();
+      showToast(rec.status === 'redeemed' ? `已完成核銷：${rec.winnerName}` : `已取消核銷狀態：${rec.winnerName}`, 'success');
+    }
+
+    function quickRedeemByCode() {
+      const code = document.getElementById('redeemCodeSearch').value.trim().toUpperCase();
+      if (!code) {
+        showToast('請輸入 6 碼兌換序號！', 'warn');
+        return;
+      }
+      const rec = appState.records.find(r => r.redeemCode.toUpperCase() === code);
+      if (!rec) {
+        showToast(`找不到兌換碼【${code}】對應的中獎紀錄！`, 'error');
+        return;
+      }
+      if (rec.status === 'forfeited') {
+        showToast('此紀錄已標記為現場棄權，無法兌換！', 'error');
+        return;
+      }
+      rec.status = 'redeemed';
+      document.getElementById('redeemCodeSearch').value = '';
+      saveState();
+      showToast(`核銷成功！已確認「${rec.winnerName}」領取【${rec.prizeName}】`, 'success');
+    }
+
+    function forfeitRecord(recId) {
+      const rec = appState.records.find(r => r.id === recId);
+      if (!rec || rec.status === 'forfeited') return;
+      rec.status = 'forfeited';
+      // 自動將該獎品庫存 +1 補回獎池
+      const prize = appState.prizes.find(p => p.id === rec.prizeId);
+      if (prize && prize.remainQty < prize.totalQty) {
+        prize.remainQty += 1;
+      }
+      saveState();
+      showToast(`已標記「${rec.winnerName}」棄權，並將【${rec.prizeName}】庫存 +1 回補至獎池！`, 'warn');
+    }
+
+    function exportRecordsCSV(type = 'all') {
+      let csvContent = '\uFEFF'; // UTF-8 BOM 確保 Excel 繁體中文不亂碼
+      if (type === 'unwon') {
+        csvContent += '編號,姓名,部門,個人加權倍率,目前狀態\n';
+        appState.participants.filter(u => !u.isWinner).forEach((u, i) => {
+          csvContent += `${i + 1},"${u.name}","${u.dept}",${u.bonus},未中獎\n`;
+        });
+      } else {
+        csvContent += '中獎時間,兌換碼,得獎者姓名,所屬部門,抽中獎項,核銷狀態,AI主持賀詞\n';
+        appState.records.forEach(r => {
+          const st = r.status === 'redeemed' ? '已兌換核銷' : (r.status === 'forfeited' ? '現場棄權(已回補)' : '尚未領取');
+          csvContent += `"${r.timestamp}","${r.redeemCode}","${r.winnerName}","${r.winnerDept}","${r.prizeName}","${st}","${(r.aiMessage || '').replace(/"/g, '""')}"\n`;
+        });
+      }
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `OmniDraw_${type === 'unwon' ? '未中獎名單' : '完整核銷報表'}_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      showToast(`已成功匯出 ${type === 'unwon' ? '未中獎安慰獎名單' : '完整中獎核銷報表'} (CSV)！`, 'success');
+    }
+
+    // ==================== 10. UI 渲染與分頁控制 ====================
+    function switchTab(tab) {
+      ['stage', 'prizes', 'participants', 'redeem'].forEach(t => {
+        const viewEl = document.getElementById(`view-${t}`);
+        if (viewEl) viewEl.classList.toggle('hidden', t !== tab);
+        const btn = document.getElementById(`tab-${t}`);
+        if (btn) {
+          if (t === tab) {
+            btn.className = 'tab-btn px-3.5 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1.5 bg-indigo-600 text-white shadow transition';
+          } else {
+            btn.className = 'tab-btn px-3.5 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1.5 text-slate-400 hover:text-white transition';
+          }
+        }
+      });
+      if (tab === 'stage') drawWheel();
+      lucide.createIcons();
+    }
+
+    function setStageMode(mode) {
+      currentStageMode = mode;
+      document.getElementById('stage-wheel-container').classList.toggle('hidden', mode !== 'wheel');
+      document.getElementById('stage-slot-container').classList.toggle('hidden', mode !== 'slot');
+      document.getElementById('stage-slot-container').classList.toggle('flex', mode === 'slot');
+
+      document.getElementById('mode-wheel').className = mode === 'wheel'
+        ? 'py-2.5 rounded-lg font-bold text-sm flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow transition'
+        : 'py-2.5 rounded-lg font-bold text-sm flex items-center justify-center gap-2 text-slate-400 hover:text-white transition';
+      document.getElementById('mode-slot').className = mode === 'slot'
+        ? 'py-2.5 rounded-lg font-bold text-sm flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow transition'
+        : 'py-2.5 rounded-lg font-bold text-sm flex items-center justify-center gap-2 text-slate-400 hover:text-white transition';
+      if (mode === 'wheel') drawWheel();
+    }
+
+    function handlePrizeModeChange() {
+      const mode = document.getElementById('prizeSelectMode').value;
+      document.getElementById('specificPrizeBox').classList.toggle('hidden', mode !== 'specific');
+    }
+
+    function updateStageMetrics() {
+      const eligible = getEligibleParticipants();
+      const badge = document.getElementById('poolStatusBadge');
+      if (badge) {
+        badge.textContent = `待抽人數: ${eligible.length} / ${appState.participants.length}`;
+      }
+    }
+
+    function renderAll() {
+      updateStageMetrics();
+      drawWheel();
+
+      // 1. 指定獎項下拉選單
+      const targetSelect = document.getElementById('targetPrizeSelect');
+      const availPrizes = getAvailablePrizes();
+      if (targetSelect) {
+        targetSelect.innerHTML = availPrizes.length > 0
+          ? availPrizes.map(p => `<option value="${p.id}">${p.name} (剩餘 ${p.remainQty} 件)</option>`).join('')
+          : `<option value="">無剩餘可用獎品</option>`;
+      }
+
+      // 2. 即時榮譽榜
+      const feed = document.getElementById('liveWinnerFeed');
+      if (feed) {
+        if (appState.records.length === 0) {
+          feed.innerHTML = `<p class="text-xs text-slate-500 py-4 text-center">尚無抽獎紀錄，點擊上方按鈕開始！</p>`;
+        } else {
+          feed.innerHTML = appState.records.slice(0, 8).map(r => `
+            <div class="flex items-center justify-between bg-slate-900/90 px-3 py-2 rounded-xl border border-slate-800 text-xs">
+              <div>
+                <span class="font-bold text-white">${r.winnerName}</span>
+                <span class="text-slate-400 ml-1">(${r.winnerDept})</span>
+                <p class="text-amber-400 font-semibold">${r.prizeName}</p>
+              </div>
+              <button onclick="copyTextToClipboard('${r.redeemCode}')" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold ${r.status === 'redeemed' ? 'bg-emerald-500/20 text-emerald-300' : (r.status === 'forfeited' ? 'bg-rose-500/20 text-rose-300 line-through' : 'bg-slate-800 text-amber-300')}" title="點擊複製兌換碼">${r.redeemCode}</button>
+            </div>
+          `).join('');
+        }
+      }
+
+      // 3. 獎品表格、100% 自動檢核橫幅與動態機率計算
+      const totalConfiguredWeight = Math.round(appState.prizes.reduce((s, p) => s + (Number(p.weight) || 0), 0) * 10) / 10;
+      const totalActiveWeight = availPrizes.reduce((s, p) => s + (Number(p.weight) || 0), 0);
+
+      // 計算各有效獎品之精準百分比 (最大餘數法確保顯示加總剛好 100.0%)
+      const activeProbMap = {};
+      if (availPrizes.length > 0 && totalActiveWeight > 0) {
+        const quotas = availPrizes.map(p => {
+          const exactTenths = ((Number(p.weight) || 0) / totalActiveWeight) * 1000;
+          const floored = Math.floor(exactTenths);
+          return { id: p.id, floored, rem: exactTenths - floored };
+        });
+        let diffTenths = 1000 - quotas.reduce((s, q) => s + q.floored, 0);
+        quotas.sort((a, b) => b.rem - a.rem);
+        for (let i = 0; i < diffTenths && i < quotas.length; i++) {
+          quotas[i].floored += 1;
+        }
+        quotas.forEach(q => {
+          activeProbMap[q.id] = (q.floored / 10).toFixed(1) + '%';
+        });
+      }
+
+      const checkBanner = document.getElementById('weightCheckBanner');
+      if (checkBanner) {
+        if (appState.prizes.length === 0) {
+          checkBanner.className = 'rounded-2xl p-3.5 border bg-slate-900/80 border-slate-800 text-slate-400 text-xs flex items-center justify-between';
+          checkBanner.innerHTML = `<span>目前尚無獎品項目，請由左側表單新增。</span>`;
+        } else if (totalConfiguredWeight === 100) {
+          checkBanner.className = 'rounded-2xl p-3.5 border bg-emerald-500/10 border-emerald-500/40 text-emerald-300 text-xs flex flex-wrap items-center justify-between gap-2';
+          checkBanner.innerHTML = `
+            <div class="flex items-center gap-2 font-bold">
+              <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400 shrink-0"></i>
+              <span>比例自動檢核通過：目前所有獎項設定比例加總為 <strong class="text-white font-mono">100%</strong>，有效庫存實際抽出率加總為 <strong class="text-white font-mono">${availPrizes.length > 0 ? '100.0%' : '0.0%'}</strong>。</span>
+            </div>
+            <span class="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-200 font-mono text-[11px] font-bold">100% CHECK OK</span>
+          `;
+        } else {
+          const diff = Math.round((100 - totalConfiguredWeight) * 10) / 10;
+          checkBanner.className = 'rounded-2xl p-3.5 border bg-amber-500/15 border-amber-500/50 text-amber-200 text-xs flex flex-wrap items-center justify-between gap-2';
+          checkBanner.innerHTML = `
+            <div class="flex items-center gap-2 font-bold">
+              <i data-lucide="alert-circle" class="w-4 h-4 text-amber-400 shrink-0"></i>
+              <span>比例加總檢核提醒：目前設定比例總和為 <strong class="text-rose-300 font-mono text-sm">${totalConfiguredWeight}%</strong>（距離 100% 差 <strong class="text-white font-mono">${diff > 0 ? '+' + diff : diff}%</strong>）。可直接在下方表格微調或點擊右側自動配平！</span>
+            </div>
+            <button onclick="normalizeAllPrizesTo100()" class="px-3 py-1 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow transition shrink-0">
+              ⚡ 立即自動配平為 100%
+            </button>
+          `;
+        }
+      }
+
+      const currentEditingPrizeId = document.getElementById('editingPrizeId')?.value || '';
+      document.getElementById('prizeTableBody').innerHTML = appState.prizes.map(p => {
+        const prob = (p.remainQty > 0 && activeProbMap[p.id]) ? activeProbMap[p.id] : '0.0% (已抽完)';
+        const isEditingThis = currentEditingPrizeId === p.id;
+        return `
+          <tr class="${isEditingThis ? 'bg-amber-500/10' : 'hover:bg-slate-900/50'} transition">
+            <td class="py-3 px-2 flex items-center gap-2.5">
+              <img src="${p.imageUrl}" onerror="this.src='https://placehold.co/80x80/1e293b/fbbf24?text=GIFT'" class="w-9 h-9 rounded-lg object-cover bg-slate-800 border border-slate-700 shrink-0">
+              <div>
+                <span class="font-bold text-white">${p.name}</span>
+                ${isEditingThis ? '<span class="ml-1.5 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold">編輯中</span>' : ''}
+              </div>
+            </td>
+            <td class="py-3 px-2 text-center text-slate-300 font-mono">${p.totalQty}</td>
+            <td class="py-3 px-2 text-center">
+              <span class="px-2.5 py-1 rounded-full text-xs font-bold font-mono ${p.remainQty > 0 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-400'}">${p.remainQty}</span>
+            </td>
+            <td class="py-3 px-2 text-center">
+              <div class="inline-flex items-center bg-slate-900 border border-slate-700 rounded-lg px-2 py-1">
+                <input type="number" min="0" max="100" step="1" value="${p.weight}" onchange="updateSinglePrizeWeightInline('${p.id}', this.value)" class="w-12 bg-transparent text-center font-mono font-bold text-indigo-300 focus:outline-none text-xs" title="直接修改比例數值">
+                <span class="text-xs text-slate-400 font-mono">%</span>
+              </div>
+            </td>
+            <td class="py-3 px-2 text-center font-mono font-bold ${p.remainQty > 0 ? 'text-amber-300' : 'text-slate-500'}">${prob}</td>
+            <td class="py-3 px-2 text-right whitespace-nowrap space-x-1">
+              <button onclick="startEditPrize('${p.id}')" class="text-amber-300 hover:text-amber-200 text-xs font-bold px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 transition inline-flex items-center gap-1">
+                <i data-lucide="pencil" class="w-3 h-3"></i> 編輯
+              </button>
+              <button onclick="deletePrize('${p.id}')" class="text-rose-400 hover:text-rose-300 text-xs font-bold px-2.5 py-1 rounded-lg bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/50 transition inline-flex items-center gap-1">
+                <i data-lucide="trash-2" class="w-3 h-3"></i> 刪除
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      const tfoot = document.getElementById('prizeTableFoot');
+      if (tfoot) {
+        const totalQtyAll = appState.prizes.reduce((s, p) => s + Number(p.totalQty || 0), 0);
+        const remainQtyAll = appState.prizes.reduce((s, p) => s + Number(p.remainQty || 0), 0);
+        tfoot.innerHTML = `
+          <tr>
+            <td class="py-3 px-2 text-slate-300">總計 (${appState.prizes.length} 項獎品)</td>
+            <td class="py-3 px-2 text-center font-mono text-white">${totalQtyAll}</td>
+            <td class="py-3 px-2 text-center font-mono text-emerald-300">${remainQtyAll}</td>
+            <td class="py-3 px-2 text-center font-mono ${totalConfiguredWeight === 100 ? 'text-emerald-400' : 'text-rose-400'}">
+              加總：${totalConfiguredWeight}% ${totalConfiguredWeight === 100 ? '✅' : '⚠️'}
+            </td>
+            <td class="py-3 px-2 text-center font-mono text-amber-300">
+              ${availPrizes.length > 0 && totalActiveWeight > 0 ? '100.0% ✅' : '0.0%'}
+            </td>
+            <td class="py-3 px-2 text-right"></td>
+          </tr>
+        `;
+      }
+
+      // 4. 參加者名單表格 (含編輯與移除按鈕)
+      const currentEditingParticipantId = document.getElementById('editingParticipantId')?.value || '';
+      document.getElementById('totalParticipantsCount').textContent = appState.participants.length;
+      document.getElementById('participantTableBody').innerHTML = appState.participants.map((u, i) => {
+        const isEditingUser = currentEditingParticipantId === u.id;
+        return `
+          <tr class="${isEditingUser ? 'bg-amber-500/10' : 'hover:bg-slate-900/50'} transition">
+            <td class="py-2.5 px-3 text-xs text-slate-500 font-mono">#${i + 1}</td>
+            <td class="py-2.5 px-3 font-bold text-white">
+              ${u.name}
+              ${isEditingUser ? '<span class="ml-1.5 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold">編輯中</span>' : ''}
+            </td>
+            <td class="py-2.5 px-3 text-slate-300 text-xs">${u.dept}</td>
+            <td class="py-2.5 px-3 text-center"><span class="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 text-xs font-bold font-mono">${u.bonus}x</span></td>
+            <td class="py-2.5 px-3 text-center">
+              ${u.isWinner ? '<span class="text-xs text-amber-400 font-bold">🏆 已中獎</span>' : '<span class="text-xs text-slate-400">⏳ 待抽中</span>'}
+            </td>
+            <td class="py-2.5 px-3 text-right whitespace-nowrap space-x-1">
+              <button onclick="startEditParticipant('${u.id}')" class="text-amber-300 hover:text-amber-200 text-xs font-bold px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 transition inline-flex items-center gap-1">
+                <i data-lucide="pencil" class="w-3 h-3"></i> 編輯
+              </button>
+              <button onclick="deleteParticipant('${u.id}')" class="text-rose-400 hover:text-rose-300 text-xs font-bold px-2.5 py-1 rounded-lg bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/50 transition inline-flex items-center gap-1">
+                <i data-lucide="trash-2" class="w-3 h-3"></i> 移除
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      // 5. 統計與核銷總表
+      const totalPrizesCount = appState.prizes.reduce((s, p) => s + Number(p.totalQty), 0);
+      const remainPrizesCount = appState.prizes.reduce((s, p) => s + Number(p.remainQty), 0);
+      const redeemedCount = appState.records.filter(r => r.status === 'redeemed').length;
+      const pendingCount = appState.records.filter(r => r.status === 'pending').length;
+      const forfeitedCount = appState.records.filter(r => r.status === 'forfeited').length;
+
+      document.getElementById('statParticipants').textContent = `${appState.participants.length} / ${getEligibleParticipants().length}`;
+      document.getElementById('statPrizes').textContent = `${totalPrizesCount - remainPrizesCount} / ${totalPrizesCount}`;
+      document.getElementById('statRedeemed').textContent = `${redeemedCount} 筆`;
+      document.getElementById('statPending').textContent = `${pendingCount} / ${forfeitedCount}`;
+
+      if (appState.records.length === 0) {
+        document.getElementById('recordsTableBody').innerHTML = `
+          <tr>
+            <td colspan="7" class="py-8 text-center text-xs text-slate-500">目前尚無任何中獎與核銷紀錄</td>
+          </tr>
+        `;
+      } else {
+        document.getElementById('recordsTableBody').innerHTML = appState.records.map(r => `
+          <tr class="hover:bg-slate-900/50 transition">
+            <td class="py-3 px-2 text-xs text-slate-400 whitespace-nowrap">${r.timestamp}</td>
+            <td class="py-3 px-2">
+              <button onclick="copyTextToClipboard('${r.redeemCode}')" class="font-mono font-bold text-amber-300 hover:underline flex items-center gap-1" title="點擊複製序號">
+                <span>${r.redeemCode}</span>
+                <i data-lucide="copy" class="w-3 h-3 opacity-70"></i>
+              </button>
+            </td>
+            <td class="py-3 px-2 font-bold text-white whitespace-nowrap">${r.winnerName} <span class="text-xs text-slate-400">(${r.winnerDept})</span></td>
+            <td class="py-3 px-2 text-indigo-300 font-semibold">${r.prizeName}</td>
+            <td class="py-3 px-2 text-xs text-slate-300 max-w-xs truncate" title="${r.aiMessage}">${r.aiMessage}</td>
+            <td class="py-3 px-2 text-center whitespace-nowrap">
+              ${r.status === 'redeemed'
+                ? '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300">✅ 已核銷領獎</span>'
+                : (r.status === 'forfeited'
+                    ? '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-400">❌ 現場棄權</span>'
+                    : '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300">⏳ 待領取</span>')}
+            </td>
+            <td class="py-3 px-2 text-right whitespace-nowrap space-x-1">
+              ${r.status !== 'forfeited' ? `
+                <button onclick="toggleRedeemRecord('${r.id}')" class="px-2.5 py-1 rounded-lg text-xs font-bold transition ${r.status === 'redeemed' ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-emerald-600 text-white hover:bg-emerald-500'}">
+                  ${r.status === 'redeemed' ? '取消核銷' : '核銷領獎'}
+                </button>
+                <button onclick="forfeitRecord('${r.id}')" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-800 transition">棄權回補</button>
+              ` : '<span class="text-xs text-slate-500">已回補庫存</span>'}
+            </td>
+          </tr>
+        `).join('');
+      }
+
+      lucide.createIcons();
+    }
+
+    // ==================== 11. 設定彈窗與啟動掛載 ====================
+    function openSettingsModal() {
+      document.getElementById('inputGeminiKey').value = customGeminiKey;
+      document.getElementById('inputEventId').value = currentEventName;
+      const fbInput = document.getElementById('inputFirebaseConfig');
+      if (fbInput) fbInput.value = customFirebaseCfg;
+      document.getElementById('settingsModal').classList.remove('hidden');
+    }
+
+    function closeSettingsModal() {
+      document.getElementById('settingsModal').classList.add('hidden');
+    }
+
+    async function saveSystemSettings() {
+      customGeminiKey = document.getElementById('inputGeminiKey').value.trim();
+      currentEventName = document.getElementById('inputEventId').value.trim() || 'tonystudio-2026-gala';
+      const fbInput = document.getElementById('inputFirebaseConfig');
+      if (fbInput) customFirebaseCfg = fbInput.value.trim();
+
+      if (window.SaaSBridge) {
+        const ok = await window.SaaSBridge.init(customFirebaseCfg, currentEventName);
+        if (ok) {
+          document.getElementById('syncBadge').className = 'text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5';
+          document.getElementById('syncBadge').innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Firebase 雲端即時同步中';
+          await window.SaaSBridge.syncEventState(currentEventName, appState);
+        }
+      }
+      closeSettingsModal();
+      showToast('系統、Gemini AI 與 Firebase 雲端設定已更新套用！', 'success');
+    }
+
+    function resetToDefaultDemo() {
+      appState = JSON.parse(JSON.stringify(DEFAULT_STATE));
+      saveState();
+      closeSettingsModal();
+      showToast('已還原為系統預設展示資料！', 'success');
+    }
+
+    window.onSaaSBridgeLoaded = async () => {
+      if (window.SaaSBridge) {
+        const ok = await window.SaaSBridge.init(customFirebaseCfg, currentEventName);
+        if (ok) {
+          document.getElementById('syncBadge').className = 'text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5';
+          document.getElementById('syncBadge').innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Firebase 雲端即時同步中';
+          // 確保系統創作者預設寫入雲端
+          const creator = saasMembers.find(m => m.email.toLowerCase() === CREATOR_ADMIN_EMAIL);
+          if (creator) await window.SaaSBridge.saveMemberDoc(creator);
+        }
+      }
+    };
+
+    window.onload = function () {
+      renderAll();
+      renderAdminDashboard();
+    };
+  </script>
+</body>
+</html>
