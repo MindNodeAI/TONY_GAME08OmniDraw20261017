@@ -1764,56 +1764,26 @@ service cloud.firestore {
     let customFirebaseCfg = localStorage.getItem(STORAGE_KEY_FB_CFG) || '';
     let currentEventName = localStorage.getItem(STORAGE_KEY_EVENT_ID) || 'tonystudio-2026-gala';
 
-    // 目前登入之 SaaS 會員與全體會員清單 (支援雲端 Firestore 即時同步)
+    // 目前登入之 SaaS 會員與全體會員清單 (支援雲端 Firestore 即時同步，僅保留系統創作者預設帳號)
     let currentAuthUser = null;
+    const CREATOR_DEFAULT_MEMBER = {
+      email: 'mindnodeai@gmail.com',
+      realName: 'TONY 楊文澤 老師',
+      identity: 'TONY老師學員',
+      role: 'admin',
+      isCreator: true,
+      emailVerified: true,
+      createdAt: '2026-01-01 09:00:00',
+      createdTimestamp: new Date('2026-01-01T09:00:00').getTime(),
+      loginCount: 18,
+      passwordHash: 'tonystudio888',
+      history: [
+        '2026-01-01 09:00:00 - 系統創作者最高權限帳號初始化完成 (永久保護不可降級與刪除)',
+        '2026-10-17 14:00:00 - 登入系統檢視雙模抽獎舞台與核銷報表'
+      ]
+    };
     let saasMembers = [
-      {
-        email: 'mindnodeai@gmail.com',
-        realName: 'TONY 楊文澤 老師',
-        identity: 'TONY老師學員',
-        role: 'admin',
-        isCreator: true,
-        emailVerified: true,
-        createdAt: '2026-01-01 09:00:00',
-        createdTimestamp: new Date('2026-01-01T09:00:00').getTime(),
-        loginCount: 18,
-        passwordHash: 'tonystudio888',
-        history: [
-          '2026-01-01 09:00:00 - 系統創作者最高權限帳號初始化完成 (永久保護不可降級與刪除)',
-          '2026-10-17 14:00:00 - 登入系統檢視雙模抽獎舞台與核銷報表'
-        ]
-      },
-      {
-        email: 'vip.student@tonystudio.tw',
-        realName: '陳冠宇',
-        identity: 'TONY老師學員',
-        role: 'user',
-        isCreator: false,
-        emailVerified: true,
-        createdAt: '2026-09-15 14:20:00',
-        createdTimestamp: new Date('2026-09-15T14:20:00').getTime(),
-        loginCount: 5,
-        passwordHash: '123456',
-        history: [
-          '2026-09-15 14:20:00 - 完成學員註冊並通過 Double Opt-in 信箱驗證',
-          '2026-10-10 19:30:00 - 執行尾牙獎池 AI 精算與轉盤抽獎'
-        ]
-      },
-      {
-        email: 'guest.marketing@brand.com',
-        realName: '林佳穎',
-        identity: '非學員(一般訪客)',
-        role: 'user',
-        isCreator: false,
-        emailVerified: true,
-        createdAt: '2026-10-05 11:10:00',
-        createdTimestamp: new Date('2026-10-05T11:10:00').getTime(),
-        loginCount: 2,
-        passwordHash: '123456',
-        history: [
-          '2026-10-05 11:10:00 - 一般訪客註冊並完成信箱驗證'
-        ]
-      }
+      JSON.parse(JSON.stringify(CREATOR_DEFAULT_MEMBER))
     ];
 
     const DEFAULT_STATE = {
@@ -2060,14 +2030,20 @@ service cloud.firestore {
     };
 
     window.onCloudMembersReceived = (cloudMembers) => {
-      if (Array.isArray(cloudMembers) && cloudMembers.length > 0) {
-        // 確保創作者帳號永遠存在且具備最高 admin 權限
+      if (Array.isArray(cloudMembers)) {
+        // 完全以 Firebase 後端實際存在的會員資料為準，並確保系統創作者最高權限帳號永久存在
         const mergedMap = new Map();
-        saasMembers.forEach(m => mergedMap.set(m.email.toLowerCase(), m));
+        mergedMap.set(CREATOR_ADMIN_EMAIL, JSON.parse(JSON.stringify(CREATOR_DEFAULT_MEMBER)));
+
         cloudMembers.forEach(m => {
           if (m && m.email) {
-            const isCreator = m.email.toLowerCase() === CREATOR_ADMIN_EMAIL;
-            mergedMap.set(m.email.toLowerCase(), {
+            const lowerEmail = m.email.toLowerCase();
+            // 自動過濾掉舊版曾殘留的虛擬測試帳號
+            if (lowerEmail === 'vip.student@tonystudio.tw' || lowerEmail === 'guest.marketing@brand.com') {
+              return;
+            }
+            const isCreator = lowerEmail === CREATOR_ADMIN_EMAIL;
+            mergedMap.set(lowerEmail, {
               ...m,
               role: isCreator ? 'admin' : (m.role || 'user'),
               isCreator
@@ -2344,10 +2320,6 @@ service cloud.firestore {
             <button type="button" onclick="quickGoogleSignInAs('${CREATOR_ADMIN_EMAIL}', 'TONY 楊文澤 老師', 'TONY老師學員')" class="w-full py-2 px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/50 text-amber-200 text-left text-xs font-bold flex items-center justify-between">
               <span>👑 TONY 老師創作者帳號 (mindnodeai@gmail.com)</span>
               <span class="px-2 py-0.5 rounded bg-amber-400 text-slate-950 text-[10px] font-black">最高 ADMIN</span>
-            </button>
-            <button type="button" onclick="quickGoogleSignInAs('vip.student@tonystudio.tw', '陳冠宇 (Google)', 'TONY老師學員')" class="w-full py-2 px-3 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-400/40 text-indigo-200 text-left text-xs font-bold flex items-center justify-between">
-              <span>🎓 陳冠宇 (vip.student@tonystudio.tw)</span>
-              <span class="px-2 py-0.5 rounded bg-indigo-500/40 text-white text-[10px]">USER 學員</span>
             </button>
           </div>
         </div>
@@ -5068,7 +5040,9 @@ service cloud.firestore {
       if (window.SaaSBridge) {
         const ok = await window.SaaSBridge.init(customFirebaseCfg, currentEventName);
         if (ok) {
-          // 確保系統創作者預設寫入雲端
+          // 若雲端曾存有舊測試帳號則主動清理，並確保系統創作者預設寫入雲端
+          await window.SaaSBridge.removeMemberDoc('vip.student@tonystudio.tw');
+          await window.SaaSBridge.removeMemberDoc('guest.marketing@brand.com');
           const creator = saasMembers.find(m => m.email.toLowerCase() === CREATOR_ADMIN_EMAIL);
           if (creator) await window.SaaSBridge.saveMemberDoc(creator);
         }
