@@ -12,7 +12,14 @@
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
   <!-- QRCode.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- SheetJS (Excel .xlsx / .xls 解析引擎) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <!-- PDF.js (PDF 點名表文字解析引擎) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script>
+    if (window.pdfjsLib) {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
     tailwind.config = {
       darkMode: 'class',
       theme: {
@@ -43,6 +50,12 @@
       100% { opacity: 1; transform: scale(1) translateY(0); }
     }
     .animate-pop { animation: popIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    @keyframes capsuleDrop {
+      0% { transform: translateY(-45px) scale(0.5) rotate(-25deg); opacity: 0; }
+      70% { transform: translateY(6px) scale(1.08) rotate(5deg); opacity: 1; }
+      100% { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; }
+    }
+    .animate-capsule { animation: capsuleDrop 0.45s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: #0f172a; }
     ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
@@ -249,9 +262,9 @@
         <div>
           <div class="flex items-center gap-2 flex-wrap">
             <h1 class="font-black text-lg tracking-wider bg-gradient-to-r from-white via-indigo-200 to-amber-300 bg-clip-text text-transparent">OmniDraw AI 智創抽獎系統</h1>
-            <span id="syncBadge" class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center gap-1.5">
-              <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span> 智慧待機模式
-            </span>
+            <button onclick="manualPushToCloud()" id="syncBadge" class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center gap-1.5 hover:bg-indigo-500/30 transition cursor-pointer" title="點擊立即強制將本地名單與設定同步上傳至雲端 Firestore">
+              <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span> 智慧待機模式 (點此同步)
+            </button>
           </div>
           <p class="text-xs text-slate-400">雙模互動引擎 (轉盤/拉霸) × 動態權重防呆 × Gemini AI 主持與核銷閉環</p>
         </div>
@@ -261,6 +274,10 @@
       <nav class="flex flex-wrap items-center bg-slate-900/90 p-1 rounded-xl border border-slate-800 gap-1">
         <button onclick="switchTab('stage')" id="tab-stage" class="tab-btn px-3.5 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1.5 bg-indigo-600 text-white shadow transition">
           <i data-lucide="flame" class="w-4 h-4"></i> 抽獎主舞台
+        </button>
+        <button onclick="switchTab('picker')" id="tab-picker" class="tab-btn px-3.5 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1.5 text-amber-300 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 transition">
+          <i data-lucide="dices" class="w-4 h-4 text-amber-400"></i> 搖珠抽人/課堂點名
+          <span class="px-1.5 py-0.2 text-[10px] rounded bg-amber-400 text-slate-950 font-black">NEW</span>
         </button>
         <button onclick="switchTab('prizes')" id="tab-prizes" class="tab-btn px-3.5 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1.5 text-slate-400 hover:text-white transition">
           <i data-lucide="gift" class="w-4 h-4"></i> 獎品與權重
@@ -343,6 +360,12 @@
 
           <!-- 抽獎邏輯選擇 -->
           <div>
+            <label class="text-xs text-amber-300 font-bold block mb-1.5 flex items-center justify-between">
+              <span>📂 選擇參與抽獎的名單群組</span>
+              <button type="button" onclick="switchTab('participants')" class="text-[11px] text-indigo-400 hover:underline font-normal">管理群組 &rarr;</button>
+            </label>
+            <select id="stageGroupSelect" onchange="handleStageGroupChange()" class="w-full bg-slate-900 border border-indigo-500/50 rounded-xl px-3.5 py-2 text-xs font-bold text-white focus:outline-none focus:border-amber-400 mb-3"></select>
+
             <label class="text-xs text-slate-400 font-medium block mb-2">獎項分配模式</label>
             <select id="prizeSelectMode" onchange="handlePrizeModeChange()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm font-medium text-white focus:outline-none focus:border-indigo-500">
               <option value="weighted">🎲 依獎品機率權重隨機抽出 (推薦轉盤)</option>
@@ -457,6 +480,238 @@
       </div>
     </section>
 
+    <!-- ==================== TAB 1.5: 搖珠抽人 / 課堂點名報告模組 ==================== -->
+    <section id="view-picker" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <!-- 左側：抽人設定與快速名單匯入 (4 cols) -->
+      <div class="lg:col-span-4 space-y-4">
+        <div class="glass-panel rounded-2xl p-5 neon-border space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <h2 class="font-bold text-base flex items-center gap-2 text-amber-300">
+              <i data-lucide="dices" class="w-4 h-4"></i> 課堂點名 / 搖珠抽人控制台
+            </h2>
+            <span id="pickerPoolBadge" class="text-xs bg-slate-800 px-2.5 py-1 rounded-lg text-amber-300 font-bold border border-slate-700">待抽: 0 人</span>
+          </div>
+
+          <!-- 1. 名單組別管理系統 (可儲存多組、自由命名、免每次清除) -->
+          <div class="space-y-2.5 bg-indigo-950/40 p-3.5 rounded-2xl border border-indigo-500/40">
+            <div class="flex items-center justify-between">
+              <label class="text-xs text-amber-300 font-black flex items-center gap-1.5">
+                <i data-lucide="folder-kanban" class="w-4 h-4 text-amber-400"></i> 1. 選擇或儲存「班級 / 名單組別」
+              </label>
+              <span class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold">自動永久儲存</span>
+            </div>
+
+            <!-- 組別下拉選擇器 -->
+            <select id="pickerGroupSelect" onchange="handlePickerGroupChange()" class="w-full bg-slate-900 border-2 border-indigo-500/60 rounded-xl px-3 py-2.5 text-xs font-black text-white focus:outline-none focus:border-amber-400 shadow-inner"></select>
+
+            <!-- 組別命名、新增、改名、刪除操作列 -->
+            <div id="pickerGroupManageBar" class="space-y-2 pt-1">
+              <div class="flex items-center gap-1.5">
+                <input type="text" id="pickerGroupNameInput" placeholder="輸入組別名稱 (如：台大EMBA班)" class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400">
+              </div>
+              <div class="grid grid-cols-3 gap-1.5">
+                <button type="button" onclick="createNewPickerGroup()" class="py-1.5 px-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center justify-center gap-1 shadow transition">
+                  <i data-lucide="folder-plus" class="w-3.5 h-3.5"></i> 新增組別
+                </button>
+                <button type="button" onclick="renameCurrentPickerGroup()" class="py-1.5 px-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold flex items-center justify-center gap-1 transition">
+                  <i data-lucide="edit-3" class="w-3.5 h-3.5"></i> 修改組名
+                </button>
+                <button type="button" onclick="deleteCurrentPickerGroup()" class="py-1.5 px-2 rounded-xl bg-rose-950/70 hover:bg-rose-900 text-rose-300 border border-rose-800/60 text-xs font-bold flex items-center justify-center gap-1 transition">
+                  <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> 刪除此組
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. 智慧多格式名單匯入盒 (支援 CSV / Excel / PDF / 圖片 OCR 與學號解析) -->
+          <div id="pickerCustomImportBox" class="space-y-3 bg-slate-900/90 p-3.5 rounded-2xl border border-emerald-500/30">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-black text-emerald-300 flex items-center gap-1.5">
+                <i data-lucide="file-Spreadsheet" class="w-4 h-4"></i> 2. 匯入本組名單 (含學號/姓名/組別)
+              </span>
+            </div>
+
+            <!-- 四大格式顯眼上傳按鈕區 -->
+            <label class="w-full py-3 px-3 rounded-xl border-2 border-dashed border-indigo-400/50 hover:border-amber-400 bg-indigo-950/30 hover:bg-indigo-950/60 cursor-pointer flex flex-col items-center justify-center gap-1.5 transition group">
+              <div class="flex items-center gap-2 text-xs font-black text-amber-300 group-hover:scale-105 transition">
+                <i data-lucide="upload-cloud" class="w-4 h-4"></i> 點此上傳檔案自動解析學號與姓名
+              </div>
+              <div class="flex flex-wrap items-center justify-center gap-1 text-[10px]">
+                <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold">📊 Excel (.xlsx/.xls)</span>
+                <span class="px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30 font-bold">📄 CSV/TXT</span>
+                <span class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 font-bold">📑 PDF 點名表</span>
+                <span class="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-bold">🖼️ 照片/截圖 AI 辨識</span>
+              </div>
+              <input type="file" id="pickerMultiFileInput" accept=".csv,.txt,.xlsx,.xls,.pdf,image/*" onchange="handlePickerMultiFileUpload(event)" class="hidden">
+            </label>
+
+            <!-- 檔案解析進度狀態提示 -->
+            <div id="pickerFileParseStatus" class="hidden rounded-xl bg-indigo-950/90 border border-amber-400/50 px-3 py-2 text-xs text-amber-200 flex items-center gap-2">
+              <i data-lucide="loader-2" class="w-4 h-4 animate-spin text-amber-400 shrink-0"></i>
+              <span id="pickerFileParseStatusText">正在智慧解析檔案中之學號與姓名...</span>
+            </div>
+
+            <!-- 單筆新增 / 編輯學生 (含學號) -->
+            <div class="bg-slate-950/90 p-2.5 rounded-xl border border-slate-800 space-y-2">
+              <div class="flex items-center justify-between">
+                <span id="pickerSingleFormTitle" class="text-[11px] font-bold text-indigo-300">➕ 單筆新增 / 修改學生 (含學號)</span>
+                <button type="button" id="btnCancelPickerMemberEdit" onclick="cancelEditPickerMember()" class="hidden text-[10px] text-slate-400 hover:text-white">取消修改</button>
+              </div>
+              <input type="hidden" id="editingPickerMemberId" value="">
+              <div class="grid grid-cols-3 gap-1.5">
+                <input type="text" id="pkStudentIdInput" placeholder="學號 (如 D11201)" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-amber-300 font-mono focus:outline-none focus:border-amber-400">
+                <input type="text" id="pkStudentNameInput" placeholder="姓名 *(必填)" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500">
+                <input type="text" id="pkStudentTagInput" placeholder="組別 (如 第一組)" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
+              </div>
+              <button type="button" onclick="saveSinglePickerMember()" id="btnSaveSinglePickerMember" class="w-full py-1.5 rounded-lg bg-indigo-600/80 hover:bg-indigo-500 text-white font-bold text-xs transition">
+                儲存單筆學生至目前組別
+              </button>
+            </div>
+
+            <!-- 批次文字貼上區 -->
+            <textarea id="pickerRawNamesInput" rows="2" placeholder="或直接貼上多行名單 (格式：學號, 姓名, 組別)：&#10;D112001, 王曉明, 第一組&#10;D112002 陳雅筑 第二組" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"></textarea>
+            <div class="flex items-center gap-2">
+              <button type="button" onclick="importPickerCustomNames(false)" class="flex-1 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition flex items-center justify-center gap-1">
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i> 批次加入目前組別
+              </button>
+              <button type="button" onclick="importPickerCustomNames(true)" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs border border-slate-700 transition" title="清空目前組別並以此名單覆蓋">覆蓋此組</button>
+            </div>
+          </div>
+
+          <!-- 3. 互動動畫引擎與點名人數設定 -->
+          <div class="space-y-2.5 pt-2 border-t border-slate-800">
+            <label class="text-xs text-slate-400 font-medium block">3. 選擇抽人互動動畫與任務設定</label>
+            <div class="grid grid-cols-2 gap-2 bg-slate-900 p-1.5 rounded-xl border border-slate-800">
+              <button onclick="setPickerVisualMode('cage')" id="pickerMode-cage" class="py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-1.5 bg-gradient-to-r from-amber-500 to-rose-500 text-slate-950 shadow transition">
+                <i data-lucide="circle-dot" class="w-4 h-4"></i> 3D 氣動搖珠機
+              </button>
+              <button onclick="setPickerVisualMode('matrix')" id="pickerMode-matrix" class="py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-1.5 text-slate-400 hover:text-white transition">
+                <i data-lucide="grid" class="w-4 h-4"></i> 量子雷達矩陣
+              </button>
+            </div>
+
+            <!-- 點名任務主題與一次抽幾人設定 -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+              <div class="sm:col-span-2">
+                <label class="text-xs text-slate-400 font-medium block mb-1">抽人任務 / 報告主題 / 指定獎項</label>
+                <input type="text" id="pickerTopicInput" value="上台簡報發表" placeholder="如：第一階段上台報告" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500">
+              </div>
+              <div>
+                <label class="text-xs text-amber-300 font-bold block mb-1">一次抽幾人</label>
+                <input type="number" id="pickerCountInput" value="1" min="1" max="12" class="w-full bg-slate-900 border border-amber-500/50 rounded-xl px-3 py-2 text-xs font-black text-amber-300 text-center focus:outline-none focus:border-amber-400">
+              </div>
+            </div>
+
+            <!-- 快捷任務情境按鈕 -->
+            <div class="flex flex-wrap gap-1.5">
+              <button type="button" onclick="setQuickPickerTopic('🎤 上台簡報發表', 1)" class="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-[11px] text-slate-300 border border-slate-800 transition">🎤 上台報告 (1人)</button>
+              <button type="button" onclick="setQuickPickerTopic('👥 小組代表搶答', 3)" class="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-[11px] text-slate-300 border border-slate-800 transition">👥 小組代表 (3人)</button>
+              <button type="button" onclick="setQuickPickerTopic('🎁 加碼現金紅包得主', 5)" class="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-[11px] text-amber-300 border border-amber-500/30 transition">🎁 加碼紅包 (5人)</button>
+            </div>
+          </div>
+
+          <!-- 抽人防呆設定 -->
+          <div class="space-y-2 pt-2 border-t border-slate-800/80 text-xs">
+            <label class="flex items-center justify-between cursor-pointer select-none">
+              <span class="text-slate-300 font-medium">不重複抽中 (自動排除已上台/已中選者)</span>
+              <input type="checkbox" id="chkPickerExcludePicked" checked onchange="renderPickerModule()" class="w-4 h-4 accent-amber-500 rounded">
+            </label>
+            <label class="flex items-center justify-between cursor-pointer select-none">
+              <span class="text-slate-300 font-medium">AI 導師/主持人熱血點名語音播報</span>
+              <input type="checkbox" id="chkPickerAiVoice" checked class="w-4 h-4 accent-indigo-500 rounded">
+            </label>
+          </div>
+
+          <!-- 啟動搖珠抽人大按鈕 -->
+          <button id="btnStartPicker" onclick="triggerNamePicker()" class="w-full py-3.5 rounded-xl font-black text-base tracking-wider bg-gradient-to-r from-amber-400 via-orange-500 to-rose-500 hover:from-amber-300 hover:to-rose-400 text-slate-950 shadow-xl gold-glow transition transform active:scale-95 flex items-center justify-center gap-2">
+            <i data-lucide="sparkles" class="w-5 h-5 fill-slate-950"></i> 啟動搖珠抽人！
+          </button>
+        </div>
+
+        <!-- 候選池狀態小卡 -->
+        <div class="glass-panel rounded-2xl p-4 border border-slate-800 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+              <i data-lucide="users" class="w-4 h-4 text-indigo-400"></i> <span id="pickerCurrentGroupTitle">目前組別名單</span> (<span id="pickerTotalPoolCount">0</span> 人)
+            </h3>
+            <div class="flex items-center gap-1.5">
+              <button onclick="switchTab('participants')" class="px-2 py-1 rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 text-[11px] text-indigo-200 font-bold border border-indigo-500/40 transition" title="前往名單管理大表格檢視與增減成員">📋 展開大表管理</button>
+              <button onclick="resetPickerPickedStatus()" class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] text-amber-300 font-bold border border-slate-700 transition">全員歸位重抽</button>
+              <button onclick="clearPickerHistory()" class="px-2 py-1 rounded-lg bg-rose-950/60 hover:bg-rose-900 text-[11px] text-rose-300 font-bold border border-rose-800/60 transition">清空紀錄</button>
+            </div>
+          </div>
+          <div id="pickerPoolChips" class="flex flex-wrap gap-1.5 max-h-44 overflow-y-auto p-1"></div>
+        </div>
+      </div>
+
+      <!-- 右側：氣動搖珠機 / 量子雷達矩陣主舞台與中選榮譽榜 (8 cols) -->
+      <div class="lg:col-span-8 space-y-5">
+        <div class="glass-panel rounded-3xl p-6 lg:p-8 neon-border min-h-[470px] flex flex-col items-center justify-between relative overflow-hidden">
+          <div class="absolute -top-24 -left-24 w-72 h-72 bg-amber-500/15 rounded-full blur-3xl pointer-events-none"></div>
+          <div class="absolute -bottom-24 -right-24 w-72 h-72 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none"></div>
+
+          <!-- 舞台頂部標題列 -->
+          <div class="w-full flex flex-wrap items-center justify-between gap-2 z-10 border-b border-slate-800/80 pb-3">
+            <div>
+              <span class="text-[11px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">OMNIDRAW CAPSULE & MATRIX ENGINE</span>
+              <h3 id="pickerStageHeadline" class="text-xl sm:text-2xl font-black text-white mt-1">🎤 本輪點名主題：上台簡報發表</h3>
+            </div>
+            <button onclick="exportPickerHistoryCSV()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 border border-slate-700 flex items-center gap-1.5 transition">
+              <i data-lucide="download" class="w-3.5 h-3.5 text-emerald-400"></i> 匯出點名結果 CSV
+            </button>
+          </div>
+
+          <!-- 視覺模式 A：3D 氣動搖珠扭蛋機 (Lottery Cage) -->
+          <div id="pickerStage-cage" class="flex flex-col items-center justify-center my-4 w-full z-10">
+            <div class="relative flex flex-col items-center">
+              <!-- 透明球艙外框與 Canvas -->
+              <div class="relative p-2 rounded-full bg-gradient-to-b from-slate-700/60 via-slate-900/90 to-slate-950 border-4 border-amber-400/70 shadow-[0_0_55px_rgba(245,158,11,0.35)]">
+                <canvas id="cageCanvas" width="340" height="340" class="rounded-full max-w-full h-auto block"></canvas>
+                <!-- 球艙高光反射裝飾 -->
+                <div class="absolute top-5 left-8 w-20 h-10 rounded-full bg-white/10 -rotate-12 blur-[2px] pointer-events-none"></div>
+              </div>
+              <!-- 搖珠機底座與出球口 -->
+              <div class="w-48 h-12 -mt-3 bg-gradient-to-r from-indigo-950 via-slate-900 to-indigo-950 border-2 border-amber-500/60 rounded-2xl shadow-2xl flex items-center justify-between px-4 relative z-20">
+                <span class="text-[11px] font-black text-amber-300 tracking-wider">TURBO AIR CAGE</span>
+                <div class="w-8 h-8 rounded-full bg-slate-950 border-2 border-amber-400 flex items-center justify-center shadow-inner">
+                  <div id="cageChuteIndicator" class="w-3.5 h-3.5 rounded-full bg-emerald-400 animate-ping"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 視覺模式 B：量子雷達矩陣 (Matrix Spotlight) -->
+          <div id="pickerStage-matrix" class="hidden w-full my-4 z-10">
+            <div id="pickerMatrixGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 max-h-[340px] overflow-y-auto p-2 bg-slate-950/70 rounded-2xl border border-slate-800"></div>
+          </div>
+
+          <!-- 本輪即時開出彩球 / 中選名單揭曉區 -->
+          <div id="pickerCurrentResultBanner" class="w-full bg-slate-900/90 border border-amber-500/40 rounded-2xl p-4 z-10 space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <span class="text-xs font-black text-amber-300 flex items-center gap-1.5">
+                <i data-lucide="award" class="w-4 h-4"></i> 本輪幸運中選名單揭曉
+              </span>
+              <span id="pickerAiCommentTag" class="text-xs text-indigo-300 italic">準備好後請點擊「啟動搖珠抽人」！</span>
+            </div>
+            <div id="pickerWinnersShowcase" class="flex flex-wrap items-center justify-center gap-3 min-h-[56px] py-1">
+              <span class="text-xs text-slate-500">尚未搖出彩球 — 點擊左側按鈕立即啟動氣動搖珠</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 歷次抽人點名紀錄表 -->
+        <div class="glass-panel rounded-2xl p-5 border border-slate-800 space-y-3">
+          <div class="flex items-center justify-between">
+            <h4 class="font-bold text-sm text-white flex items-center gap-2">
+              <i data-lucide="list-checks" class="w-4 h-4 text-emerald-400"></i> 歷次點名 / 抽人結果紀錄
+            </h4>
+            <span class="text-xs text-slate-400">點擊姓名膠囊可單獨取消中選並放回抽人池</span>
+          </div>
+          <div id="pickerHistoryContainer" class="space-y-2 max-h-60 overflow-y-auto pr-1"></div>
+        </div>
+      </div>
+    </section>
+
     <!-- ==================== TAB 2: 獎品與權重管理 ==================== -->
     <section id="view-prizes" class="hidden space-y-6">
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -473,37 +728,37 @@
             <div class="space-y-3 text-sm">
               <div>
                 <label class="text-xs text-slate-400 block mb-1">獎品名稱 *</label>
-                <input type="text" id="prizeNameInput" placeholder="例如：頭獎 iPhone 17 Pro" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-indigo-500">
+                <input type="text" id="prizeNameInput" placeholder="例如：頭獎 iPhone 17 Pro" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500">
               </div>
               <div class="grid grid-cols-3 gap-2.5">
                 <div>
                   <label class="text-xs text-slate-400 block mb-1">總數量 *</label>
-                  <input type="number" id="prizeQtyInput" value="1" min="1" onchange="syncRemainQtyOnTotalChange()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500">
+                  <input type="number" id="prizeQtyInput" value="1" min="1" oninput="syncRemainQtyOnTotalChange()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500">
                 </div>
                 <div>
                   <label class="text-xs text-slate-400 block mb-1">剩餘數量 *</label>
                   <input type="number" id="prizeRemainInput" value="1" min="0" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-emerald-300 font-bold focus:outline-none focus:border-indigo-500">
                 </div>
                 <div>
-                  <label class="text-xs text-amber-300 font-bold block mb-1">比例 (%) *</label>
+                  <label class="text-xs text-amber-300 font-bold block mb-1">設定比例 (%) *</label>
                   <input type="number" id="prizeWeightInput" value="10" min="0" max="100" step="1" class="w-full bg-slate-900 border border-amber-500/50 rounded-xl px-3 py-2 text-amber-300 font-bold focus:outline-none focus:border-amber-400">
                 </div>
               </div>
               <div>
-                <label class="text-xs text-slate-400 block mb-1">獎品圖片網址 (選填，或上傳本地圖片)</label>
-                <input type="text" id="prizeImageUrlInput" placeholder="https://..." class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white mb-2 focus:outline-none focus:border-indigo-500">
+                <label class="text-xs text-slate-400 block mb-1">獎品圖片網址 (選填，或於下方上傳檔案)</label>
+                <input type="url" id="prizeImageUrlInput" placeholder="https://..." class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 mb-2">
                 <input type="file" id="prizeImageFile" accept="image/*" class="w-full text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-indigo-600/30 file:text-indigo-300 hover:file:bg-indigo-600/50 cursor-pointer">
               </div>
-              <label class="flex items-center justify-between text-xs bg-slate-900/90 border border-slate-800 rounded-xl px-3 py-2 cursor-pointer select-none">
-                <span class="text-slate-300 font-medium">儲存時自動將全部獎項比例配平至 100%</span>
+              <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer pt-1">
                 <input type="checkbox" id="chkAutoNormalizePrize" class="w-4 h-4 accent-amber-500 rounded">
+                <span>儲存時自動將全部獎項比例配平至 100%</span>
               </label>
-              <div class="flex items-center gap-2">
+              <div class="flex items-center gap-2 pt-1">
                 <button onclick="savePrizeForm()" id="btnSavePrize" class="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-bold text-white flex items-center justify-center gap-1.5 transition">
                   <i data-lucide="save" class="w-4 h-4"></i> <span id="btnSavePrizeText">儲存並加入獎池</span>
                 </button>
                 <button onclick="cancelEditPrize()" id="btnCancelPrizeEdit" class="hidden px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs border border-slate-700 transition">
-                  取消
+                  取消修改
                 </button>
               </div>
             </div>
@@ -515,9 +770,9 @@
               <h3 class="font-bold text-sm flex items-center gap-2 text-amber-300">
                 <i data-lucide="wand-2" class="w-4 h-4"></i> Gemini AI 智慧獎池精算師
               </h3>
-              <span class="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded font-mono">Gemini 3 Flash</span>
+              <span class="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded font-mono">gemini-3.8-flash</span>
             </div>
-            <textarea id="aiPrizePrompt" rows="3" placeholder="輸入需求，例如：我們是數位行銷公司尾牙，預算 10 萬元、50 人參加，請幫我規劃 5 個階層的科技與實用獎項、數量與權重配置。" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-amber-500"></textarea>
+            <textarea id="aiPrizePrompt" rows="3" placeholder="輸入需求，例如：我們是數位行銷公司尾牙，預算 8 萬元、50 人參加，請幫我規劃 5 個階層的科技與實用獎項、數量與權重配置。" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"></textarea>
             <button onclick="generatePrizesWithAI()" id="btnAiPrizes" class="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 transition">
               <i data-lucide="sparkles" class="w-4 h-4"></i> AI 一鍵自動生成獎品與 100% 機率表
             </button>
@@ -528,21 +783,21 @@
         <div class="lg:col-span-8 glass-panel rounded-2xl p-5 space-y-4">
           <div class="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <h3 class="font-bold text-base text-white">目前獎池庫存與動態比例一覽</h3>
-              <p class="text-xs text-slate-400">系統自動檢核「設定比例加總是否為 100%」；當某獎項剩餘數量歸零時，即時實際機率將自動重分配並保持加總 100.0%。</p>
+              <h3 class="font-bold text-base text-white">目前獎池庫存與 100% 動態比例檢核表</h3>
+              <p class="text-xs text-slate-400">可點擊任一獎項的「編輯」修改內容，或直接在表格內調整比例並點擊「一鍵自動配平 100%」。</p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
-              <button onclick="normalizeAllPrizesTo100()" class="px-3.5 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-xs text-amber-300 border border-amber-500/40 flex items-center gap-1.5 font-bold transition" title="依目前各獎項比例自動換算並配平加總為 100%">
-                <i data-lucide="scale" class="w-3.5 h-3.5"></i> 一鍵自動配平 100%
+              <button onclick="normalizeAllPrizesTo100()" class="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-xs font-bold text-amber-300 border border-amber-500/40 flex items-center gap-1.5 transition">
+                <i data-lucide="percent" class="w-3.5 h-3.5"></i> 一鍵自動配平 100%
               </button>
-              <button onclick="resetAllPrizeQty()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 border border-slate-700 flex items-center gap-1.5 font-bold transition">
+              <button onclick="resetAllPrizeQty()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 border border-slate-700 flex items-center gap-1 transition">
                 <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i> 全部庫存補滿重置
               </button>
             </div>
           </div>
 
-          <!-- 100% 比例自動檢核狀態橫幅 -->
-          <div id="weightCheckBanner" class="rounded-2xl p-3.5 border flex flex-wrap items-center justify-between gap-3 text-xs"></div>
+          <!-- 比例 100% 自動檢核狀態橫幅 -->
+          <div id="weightCheckBanner" class="rounded-2xl p-3.5 border flex flex-wrap items-center justify-between gap-2 text-xs"></div>
 
           <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse text-sm">
@@ -552,7 +807,7 @@
                   <th class="py-3 px-2 text-center">總數</th>
                   <th class="py-3 px-2 text-center">剩餘數量</th>
                   <th class="py-3 px-2 text-center">設定比例 (%)</th>
-                  <th class="py-3 px-2 text-center">即時實際機率</th>
+                  <th class="py-3 px-2 text-center">有效庫存實際抽出率</th>
                   <th class="py-3 px-2 text-right">修改 / 刪除</th>
                 </tr>
               </thead>
@@ -564,44 +819,112 @@
       </div>
     </section>
 
-    <!-- ==================== TAB 3: 參加者名單管理 ==================== -->
+    <!-- ==================== TAB 3: 參加者名單管理 (與搖珠抽人/課堂點名群組 100% 雙向連動) ==================== -->
     <section id="view-participants" class="hidden space-y-6">
+      
+      <!-- 頂部：跨模組連動「名單群組 / 班級管理中樞」 -->
+      <div class="glass-panel rounded-3xl p-5 neon-border border border-indigo-500/40">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
+          <div class="lg:col-span-5 space-y-1">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/40">雙向即時連動</span>
+              <h2 class="font-black text-base sm:text-lg text-white flex items-center gap-2">
+                <i data-lucide="folder-kanban" class="w-5 h-5 text-indigo-400"></i> 名單群組 / 課堂班級管理中樞
+              </h2>
+              <button type="button" onclick="manualPushToCloud()" class="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-[11px] font-bold flex items-center gap-1 transition" title="立即將所有班級群組與名單強制上傳至雲端資料庫">
+                <i data-lucide="cloud-upload" class="w-3.5 h-3.5"></i> 立即備份至雲端
+              </button>
+            </div>
+            <p class="text-xs text-slate-400">在此切換或增減的群組與人員（含學號），皆與「🎲 搖珠抽人/課堂點名」及「🔥 抽獎主舞台」100% 同步共享並自動寫入雲端！</p>
+          </div>
+
+          <!-- 群組切換下拉選單 -->
+          <div class="lg:col-span-3">
+            <label class="text-[11px] text-amber-300 font-bold block mb-1">目前檢視 / 編輯的名單群組：</label>
+            <select id="managerGroupSelect" onchange="handleManagerGroupChange()" class="w-full bg-slate-900 border-2 border-indigo-500/70 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-black text-white focus:outline-none focus:border-amber-400 shadow-inner"></select>
+          </div>
+
+          <!-- 群組命名與新增/改名/刪除 -->
+          <div class="lg:col-span-4 space-y-1.5">
+            <label class="text-[11px] text-slate-400 font-bold block">群組名稱設定（可新增班級或修改目前群組名）：</label>
+            <div class="flex flex-wrap items-center gap-1.5">
+              <input type="text" id="managerGroupNameInput" placeholder="輸入新群組名稱 (如：北科大工設班)" class="flex-1 min-w-[140px] bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400">
+              <button type="button" onclick="createGroupFromManager()" class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1 shadow transition">
+                <i data-lucide="folder-plus" class="w-3.5 h-3.5"></i> 新增群組
+              </button>
+              <button type="button" onclick="renameGroupFromManager()" class="px-2.5 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold transition">
+                改名
+              </button>
+              <button type="button" onclick="deleteGroupFromManager()" class="px-2.5 py-2 rounded-xl bg-rose-950/70 hover:bg-rose-900 text-rose-300 border border-rose-800/60 text-xs font-bold transition">
+                刪除組
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <!-- 匯入與新增/編輯區 -->
+        <!-- 左側：單筆新增/修改 (含學號與所屬群組) & 多格式智慧批次匯入區 (4 cols) -->
         <div class="lg:col-span-4 space-y-4">
+          <!-- 單筆新增 / 編輯卡片 -->
           <div id="participantFormCard" class="glass-panel rounded-2xl p-5 space-y-4 border border-slate-800 transition">
             <div class="flex items-center justify-between">
               <h3 id="participantFormTitle" class="font-bold text-base flex items-center gap-2 text-indigo-300">
-                <i data-lucide="user-plus" class="w-4 h-4"></i> 單筆新增參加者
+                <i data-lucide="user-plus" class="w-4 h-4"></i> 單筆新增成員 / 學生
               </h3>
               <span id="participantEditBadge" class="hidden text-[11px] px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold">編輯模式</span>
             </div>
             <input type="hidden" id="editingParticipantId" value="">
+            <input type="hidden" id="editingParticipantOriginalGroupId" value="">
+
             <div class="space-y-3 text-sm">
               <div>
-                <label class="text-xs text-slate-400 block mb-1">參加者姓名 *</label>
-                <input type="text" id="pNameInput" placeholder="姓名 (必填，如：王小明)" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-indigo-500">
+                <label class="text-xs text-indigo-300 font-bold block mb-1">歸屬名單群組 / 班級 *</label>
+                <select id="pTargetGroupSelect" class="w-full bg-slate-900 border border-indigo-500/50 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-amber-400"></select>
               </div>
-              <div class="grid grid-cols-2 gap-2">
+
+              <div class="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label class="text-xs text-slate-400 block mb-1">部門 / 組別</label>
-                  <input type="text" id="pDeptInput" placeholder="如：行銷部" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-indigo-500">
+                  <label class="text-xs text-amber-300 font-bold block mb-1">學號 / 員工編號 (選填)</label>
+                  <input type="text" id="pStudentIdInput" placeholder="如：D11240101" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs font-mono text-amber-300 focus:outline-none focus:border-amber-400">
                 </div>
                 <div>
-                  <label class="text-xs text-slate-400 block mb-1">個人加權倍率</label>
-                  <input type="number" id="pBonusInput" value="1" min="1" max="10" placeholder="預設 1" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-indigo-500" title="中獎權重倍率">
+                  <label class="text-xs text-slate-300 font-bold block mb-1">姓名 *(必填)</label>
+                  <input type="text" id="pNameInput" placeholder="如：王小明" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
                 </div>
               </div>
-              <div id="pWinnerStatusBox" class="hidden">
-                <label class="text-xs text-slate-400 block mb-1">中獎狀態調整</label>
-                <select id="pWinnerStatusSelect" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-xs font-bold text-amber-300 focus:outline-none focus:border-indigo-500">
-                  <option value="false">⏳ 待抽中 (具備抽獎資格)</option>
-                  <option value="true">🏆 已中獎</option>
-                </select>
+
+              <div class="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label class="text-xs text-slate-400 block mb-1">部門 / 組別標籤</label>
+                  <input type="text" id="pDeptInput" placeholder="如：第一組 / 行銷部" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                  <label class="text-xs text-slate-400 block mb-1">抽獎個人加權倍率</label>
+                  <input type="number" id="pBonusInput" value="1" min="1" max="10" placeholder="預設 1" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500" title="主舞台抽獎權重倍率">
+                </div>
               </div>
-              <div class="flex items-center gap-2">
+
+              <div id="pWinnerStatusBox" class="hidden grid grid-cols-2 gap-2.5 pt-1">
+                <div>
+                  <label class="text-xs text-slate-400 block mb-1">主舞台中獎狀態</label>
+                  <select id="pWinnerStatusSelect" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-2 text-xs font-bold text-amber-300 focus:outline-none">
+                    <option value="false">⏳ 待抽中</option>
+                    <option value="true">🏆 已中獎</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="text-xs text-slate-400 block mb-1">課堂搖珠點名狀態</label>
+                  <select id="pPickedStatusSelect" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-2 text-xs font-bold text-emerald-300 focus:outline-none">
+                    <option value="false">🎯 待點名</option>
+                    <option value="true">✅ 已上台/已中選</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-2 pt-1">
                 <button onclick="saveParticipantForm()" id="btnSaveParticipant" class="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-bold text-white flex items-center justify-center gap-1.5 transition">
-                  <i data-lucide="check" class="w-4 h-4"></i> <span id="btnSaveParticipantText">加入名單</span>
+                  <i data-lucide="check" class="w-4 h-4"></i> <span id="btnSaveParticipantText">加入目前群組名單</span>
                 </button>
                 <button onclick="cancelEditParticipant()" id="btnCancelParticipantEdit" class="hidden px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs border border-slate-700 transition">
                   取消
@@ -610,40 +933,66 @@
             </div>
           </div>
 
-          <div class="glass-panel rounded-2xl p-5 space-y-4">
+          <!-- 批次多格式匯入區 (支援 Excel / CSV / PDF / 照片 OCR) -->
+          <div class="glass-panel rounded-2xl p-5 space-y-3.5 border border-emerald-500/30">
             <h3 class="font-bold text-base flex items-center gap-2 text-emerald-300">
-              <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> 批次匯入名單 (CSV / 多行文字)
+              <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> 智慧批次匯入至目前群組
             </h3>
-            <p class="text-xs text-slate-400">支援格式：<code class="text-amber-300">姓名,部門,加權倍率</code>（每行一筆，亦可直接上傳 CSV 檔）</p>
-            <input type="file" id="csvFileInput" accept=".csv,.txt" onchange="handleCsvFileUpload(event)" class="w-full text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-emerald-600/30 file:text-emerald-300 cursor-pointer">
-            <textarea id="batchPasteInput" rows="5" placeholder="陳大文,數位行銷部,2&#10;林小雅,跨境商務組,1&#10;張志豪,品牌顧問處,1" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-emerald-500"></textarea>
-            <button onclick="importBatchParticipants()" class="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-white text-xs transition">批次解析並匯入名單</button>
+            <p class="text-xs text-slate-400">上傳檔案或貼上文字，將直接匯入上方選定的群組（支援自動辨識 <code class="text-amber-300">學號, 姓名, 組別/部門, 加權</code>）：</p>
+
+            <!-- 多格式上傳按鈕 -->
+            <label class="w-full py-3 px-3 rounded-xl border-2 border-dashed border-emerald-500/50 hover:border-amber-400 bg-slate-900/90 hover:bg-slate-900 cursor-pointer flex flex-col items-center justify-center gap-1.5 transition group">
+              <div class="flex items-center gap-1.5 text-xs font-black text-emerald-300 group-hover:text-amber-300 transition">
+                <i data-lucide="upload-cloud" class="w-4 h-4"></i> 點此上傳 Excel / CSV / PDF / 點名表照片
+              </div>
+              <span class="text-[10px] text-slate-400">自動解析學號與姓名並寫入當前選擇的群組</span>
+              <input type="file" id="csvFileInput" accept=".csv,.txt,.xlsx,.xls,.pdf,image/*" onchange="handleManagerMultiFileUpload(event)" class="hidden">
+            </label>
+
+            <textarea id="batchPasteInput" rows="4" placeholder="支援格式：學號, 姓名, 部門/組別, 加權倍率&#10;D112001, 王小明, 第一組, 1&#10;D112002, 陳雅婷, 第二組, 2&#10;張志豪, 品牌顧問處, 1" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-emerald-500"></textarea>
+            <div class="flex items-center gap-2">
+              <button onclick="importBatchParticipants(false)" class="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-white text-xs transition">➕ 批次加入目前群組</button>
+              <button onclick="importBatchParticipants(true)" class="px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 font-bold text-slate-300 text-xs border border-slate-700 transition" title="清空目前群組並以此批名單覆蓋">覆蓋此組</button>
+            </div>
           </div>
         </div>
 
-        <!-- 名單列表 -->
+        <!-- 右側：群組人員與學號管理大總表 (8 cols) -->
         <div class="lg:col-span-8 glass-panel rounded-2xl p-5 space-y-4">
-          <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
             <div>
-              <h3 class="font-bold text-base text-white">參加抽獎者名冊 (<span id="totalParticipantsCount">0</span> 人)</h3>
-              <p class="text-xs text-slate-400">可隨時重置所有人的「已中獎」狀態，或匯出未中獎名單發放安慰獎。</p>
+              <div class="flex items-center gap-2">
+                <h3 class="font-black text-base text-white">
+                  <span id="managerTableGroupTitle" class="text-amber-300">目前群組</span> 名冊 (<span id="totalParticipantsCount">0</span> 人)
+                </h3>
+                <button onclick="switchTab('picker')" class="px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-bold flex items-center gap-1 transition">
+                  <i data-lucide="dices" class="w-3.5 h-3.5"></i> 前往搖珠抽此組 &rarr;
+                </button>
+              </div>
+              <p class="text-xs text-slate-400 mt-0.5">在此增減或修改任何人的學號、姓名與組別，皆會即時同步至「搖珠抽人」與「抽獎主舞台」。</p>
             </div>
-            <div class="flex items-center gap-2">
-              <button onclick="resetParticipantsWinnerStatus()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 border border-slate-700 transition">重置全員為未中獎</button>
-              <button onclick="askConfirm('確定要清空所有參加者名單嗎？此操作無法復原。', clearAllParticipants)" class="px-3.5 py-2 rounded-xl bg-rose-950/60 hover:bg-rose-900 text-xs font-bold text-rose-300 border border-rose-800 transition">清空名單</button>
+
+            <!-- 搜尋過濾與批量狀態重置 -->
+            <div class="flex flex-wrap items-center gap-2">
+              <div class="relative">
+                <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5"></i>
+                <input type="text" id="participantSearchInput" oninput="renderAll()" placeholder="搜尋學號、姓名或組別..." class="bg-slate-900 border border-slate-700 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 w-44">
+              </div>
+              <button onclick="resetParticipantsWinnerStatus()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 border border-slate-700 transition" title="重置目前檢視名單的中獎與點名狀態">重置此組抽籤狀態</button>
+              <button onclick="askConfirm('確定要清空目前檢視群組內的所有成員嗎？此操作無法復原。', clearAllParticipants)" class="px-3 py-1.5 rounded-xl bg-rose-950/60 hover:bg-rose-900 text-xs font-bold text-rose-300 border border-rose-800 transition">清空此組人員</button>
             </div>
           </div>
 
-          <div class="overflow-x-auto max-h-[480px]">
+          <div class="overflow-x-auto max-h-[540px]">
             <table class="w-full text-left border-collapse text-sm">
               <thead class="sticky top-0 bg-slate-900 z-10">
                 <tr class="border-b border-slate-800 text-xs text-slate-400">
-                  <th class="py-2.5 px-3">編號</th>
-                  <th class="py-2.5 px-3">姓名</th>
-                  <th class="py-2.5 px-3">部門 / 標籤</th>
-                  <th class="py-2.5 px-3 text-center">個人加權</th>
-                  <th class="py-2.5 px-3 text-center">狀態</th>
-                  <th class="py-2.5 px-3 text-right">修改 / 移除</th>
+                  <th class="py-2.5 px-2.5">序號 / 學號</th>
+                  <th class="py-2.5 px-2.5">姓名</th>
+                  <th class="py-2.5 px-2.5">所屬群組 &amp; 組別/部門</th>
+                  <th class="py-2.5 px-2.5 text-center">加權</th>
+                  <th class="py-2.5 px-2.5 text-center">抽獎 / 點名狀態</th>
+                  <th class="py-2.5 px-2.5 text-right">修改 / 移除</th>
                 </tr>
               </thead>
               <tbody id="participantTableBody" class="divide-y divide-slate-800/60"></tbody>
@@ -788,7 +1137,7 @@
       <div class="bg-indigo-950/50 border border-indigo-500/30 rounded-2xl p-3.5 text-left">
         <div class="flex items-center justify-between text-[11px] text-indigo-300 font-bold mb-1">
           <span class="flex items-center gap-1"><i data-lucide="bot" class="w-3.5 h-3.5"></i> AI 現場氣氛主持人播報</span>
-          <span id="aiModelUsedTag" class="text-[10px] text-slate-400 font-mono">Gemini AI</span>
+          <span id="aiModelUsedTag" class="text-[10px] text-slate-400 font-mono">gemini-3.8-flash</span>
         </div>
         <p id="modalAiMessage" class="text-xs text-slate-200 leading-relaxed italic">正在為得獎者生成專屬幽默賀詞...</p>
       </div>
@@ -818,6 +1167,7 @@
         <div>
           <label class="font-bold text-amber-300 block mb-1">1. Google Gemini API Key (選填，啟用 AI 主持與獎池精算)</label>
           <input type="password" id="inputGeminiKey" placeholder="留空則自動使用系統內建 Gemini 通道，或輸入 AIzaSy... 金鑰" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-500">
+          <p class="text-[11px] text-slate-400 mt-1">系統已鎖定採用 <code class="text-amber-300 font-bold">gemini-3.8-flash</code> 作為主力模型（具備多模態名單辨識、氣氛主持、獎池精算與商業分析報告能力）。</p>
         </div>
 
         <div>
@@ -826,9 +1176,42 @@
         </div>
 
         <div>
-          <label class="font-bold text-emerald-300 block mb-1">3. 自訂 Firebase Config JSON (選填，貼上即啟動專屬專案 Auth + Firestore 同步)</label>
+          <label class="font-bold text-emerald-300 block mb-1">3. 自訂 Firebase Config JSON (選填，貼上即永久記憶並啟動專屬專案 Auth + Firestore 同步)</label>
           <textarea id="inputFirebaseConfig" rows="4" placeholder='{"apiKey":"...","authDomain":"...","projectId":"...","storageBucket":"...","appId":"..."}' class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-mono text-white"></textarea>
-          <p class="text-[11px] text-slate-400 mt-1">本環境已自動掛載雲端驗證與資料庫；若您欲獨立匯出部署至外部主機，可在此貼上您的 Firebase 設定。</p>
+          <p class="text-[11px] text-slate-400 mt-1">系統會自動將此設定保存在瀏覽器中，重新整理不會遺失。若出現權限阻擋，請複製下方 Firestore Rules 至您的 Firebase Console 發布。</p>
+        </div>
+
+        <!-- 新增：Firestore Security Rules 診斷與一鍵複製面板 -->
+        <div class="p-4 rounded-2xl bg-indigo-950/40 border border-indigo-500/40 space-y-2.5">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="text-xs font-black text-amber-300 flex items-center gap-1.5">
+              <i data-lucide="shield-alert" class="w-4 h-4 text-amber-400"></i> 4. 雲端資料庫 Firestore Rules (安全性規則設定指引)
+            </span>
+            <button type="button" onclick="copyFirestoreRules()" class="px-3 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs flex items-center gap-1 shadow transition">
+              <i data-lucide="copy" class="w-3.5 h-3.5"></i> 一鍵複製 Firestore Rules
+            </button>
+          </div>
+          <p class="text-[11px] text-slate-300 leading-relaxed">
+            為什麼名單沒存進雲端？若您的 Firebase 專案尚未設定讀取/寫入規則，或未開啟「Authentication &rarr; Sign-in method &rarr; <strong>匿名 (Anonymous)</strong> 與 <strong>Email/Password</strong>」，Firestore 會拒絕寫入。請至 <strong>Firebase Console &rarr; Firestore Database &rarr; 規則 (Rules)</strong> 貼上以下規則並點擊「發布」：
+          </p>
+          <pre id="firestoreRulesCode" class="bg-slate-950 border border-slate-800 rounded-xl p-3 text-[11px] font-mono text-emerald-300 overflow-x-auto select-all">rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 開放 OmniDraw 活動名單、搖珠群組與 SaaS 會員資料讀寫
+    match /omnidraw_events/{eventId} {
+      allow read, write: if true;
+    }
+    match /saas_members/{memberId} {
+      allow read, write: if true;
+    }
+    match /artifacts/{appId}/public/data/{document=**} {
+      allow read, write: if true;
+    }
+  }
+}</pre>
+          <div id="cloudDiagStatus" class="text-[11px] font-mono text-indigo-200 bg-slate-900/90 px-3 py-2 rounded-xl border border-slate-800">
+            雲端連線診斷：等待檢測...
+          </div>
         </div>
 
         <div class="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center justify-between">
@@ -1060,7 +1443,7 @@
 
   <!-- Firebase 全端 SaaS 模組橋接器 -->
   <script type="module">
-    import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { initializeApp, getApps, deleteApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import {
       getAuth,
       signInAnonymously,
@@ -1093,20 +1476,60 @@
       db: null,
       appId: envAppId,
       isCloudReady: false,
-      hasRealAuthProvider: false,
+      usingCustomConfig: false,
+      lastSyncError: null,
       membersUnsub: null,
       stateUnsub: null,
+
+      // 確保任何 Firestore 操作前皆維持有效 Auth 連線，若專案未開啟匿名登入亦能優雅降級
+      async ensureAuthSession() {
+        if (!this.auth) return;
+        if (this.auth.currentUser) return;
+        try {
+          if (!this.usingCustomConfig && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+            await signInWithCustomToken(this.auth, __initial_auth_token);
+          } else {
+            await signInAnonymously(this.auth);
+          }
+        } catch (authErr) {
+          console.warn("Firebase Auth 匿名登入未啟用或略過 (若 Firestore Rules 設為 if true 仍可直接讀寫):", authErr.code || authErr.message);
+        }
+      },
+
+      getEventDocRef(eventId) {
+        const cleanEventId = (eventId || 'tonystudio-2026-gala').trim();
+        // 若使用者填入自訂 Firebase Config，優先使用最直覺的頂層集合 omnidraw_events/{eventId}，同時相容環境路徑
+        if (this.usingCustomConfig) {
+          return doc(this.db, 'omnidraw_events', cleanEventId);
+        }
+        return doc(this.db, 'artifacts', this.appId, 'public', 'data', 'omnidraw_events', cleanEventId);
+      },
+
+      getMembersColRef() {
+        if (this.usingCustomConfig) {
+          return collection(this.db, 'saas_members');
+        }
+        return collection(this.db, 'artifacts', this.appId, 'public', 'data', 'saas_members');
+      },
 
       async init(customConfigStr, eventId) {
         try {
           let configObj = null;
-          if (customConfigStr) {
+          if (customConfigStr && customConfigStr.trim().startsWith('{')) {
             configObj = JSON.parse(customConfigStr);
-            this.hasRealAuthProvider = true;
+            this.usingCustomConfig = true;
           } else if (typeof __firebase_config !== 'undefined' && __firebase_config) {
             configObj = JSON.parse(__firebase_config);
+            this.usingCustomConfig = false;
           }
           if (!configObj) return false;
+
+          // 若切換了自訂 Firebase Config，重新初始化 App
+          if (getApps().length > 0 && this.usingCustomConfig) {
+            try {
+              await Promise.all(getApps().map(a => deleteApp(a)));
+            } catch (e) {}
+          }
 
           if (!getApps().length) {
             this.app = initializeApp(configObj);
@@ -1116,35 +1539,66 @@
           this.auth = getAuth(this.app);
           this.db = getFirestore(this.app);
 
-          // RULE 3: 先完成環境驗證以確保 Firestore 讀寫權限
-          if (!this.auth.currentUser) {
-            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-              await signInWithCustomToken(this.auth, __initial_auth_token);
-            } else {
-              await signInAnonymously(this.auth);
-            }
-          }
+          await this.ensureAuthSession();
 
           this.isCloudReady = true;
-          this.startRealtimeListeners(eventId || 'tonystudio-2026-gala');
+          this.lastSyncError = null;
+          await this.initialSyncAndListen(eventId || 'tonystudio-2026-gala');
           return true;
         } catch (err) {
+          this.lastSyncError = err.message || String(err);
           console.warn("Firebase SaaS 初始化降級為智慧內建模式:", err);
           return false;
         }
       },
 
-      startRealtimeListeners(eventId) {
-        if (!this.isCloudReady || !this.db || !this.auth.currentUser) return;
-        const stateDocRef = doc(this.db, 'artifacts', this.appId, 'public', 'data', 'omnidraw_events', eventId);
+      // 初次連線時比對本地與雲端時間戳記：若本地有較新的名單修改，立即自動推上雲端，防止被雲端舊資料蓋掉！
+      async initialSyncAndListen(eventId) {
+        if (!this.isCloudReady || !this.db) return;
+        await this.ensureAuthSession();
+
+        const stateDocRef = this.getEventDocRef(eventId);
+        try {
+          const snap = await getDoc(stateDocRef);
+          const localUpdatedAt = window.getLocalStateUpdatedAt ? window.getLocalStateUpdatedAt() : 0;
+
+          if (!snap.exists()) {
+            // 雲端尚無此活動文件 -> 立即將本地現有名單與群組完整推送上雲端！
+            if (window.getAppStateForCloud) {
+              await this.syncEventState(eventId, window.getAppStateForCloud(), true);
+            }
+          } else {
+            const cloudData = snap.data();
+            const cloudUpdatedAt = Number(cloudData.updatedAt) || 0;
+            if (localUpdatedAt > cloudUpdatedAt && window.getAppStateForCloud) {
+              // 本地名單比雲端還新 -> 將本地名單推上雲端！
+              await this.syncEventState(eventId, window.getAppStateForCloud(), true);
+            } else if (window.onCloudStateReceived) {
+              window.onCloudStateReceived(cloudData);
+            }
+          }
+        } catch (readErr) {
+          this.lastSyncError = readErr.code || readErr.message;
+          console.warn("初次讀取雲端狀態提醒 (請檢查 Firestore Rules):", readErr);
+          if (window.onCloudSyncStatusChange) {
+            window.onCloudSyncStatusChange(false, this.lastSyncError);
+          }
+        }
+
         if (this.stateUnsub) this.stateUnsub();
         this.stateUnsub = onSnapshot(stateDocRef, (snap) => {
           if (snap.exists() && window.onCloudStateReceived) {
             window.onCloudStateReceived(snap.data());
           }
-        }, (err) => console.warn("Event sync listener notice:", err));
+        }, (err) => {
+          this.lastSyncError = err.code || err.message;
+          console.warn("Event sync listener notice:", err);
+          if (window.onCloudSyncStatusChange) {
+            window.onCloudSyncStatusChange(false, this.lastSyncError);
+          }
+        });
 
-        const membersColRef = collection(this.db, 'artifacts', this.appId, 'public', 'data', 'saas_members');
+        const membersColRef = this.getMembersColRef();
         if (this.membersUnsub) this.membersUnsub();
         this.membersUnsub = onSnapshot(membersColRef, (snap) => {
           const list = [];
@@ -1155,26 +1609,55 @@
         }, (err) => console.warn("Members listener notice:", err));
       },
 
-      async syncEventState(eventId, stateObj) {
-        if (!this.isCloudReady || !this.db || !this.auth.currentUser) return;
+      async syncEventState(eventId, stateObj, showSuccessToast = false) {
+        if (!this.isCloudReady || !this.db) return false;
+        await this.ensureAuthSession();
         try {
-          const stateDocRef = doc(this.db, 'artifacts', this.appId, 'public', 'data', 'omnidraw_events', eventId);
-          await setDoc(stateDocRef, {
-            prizes: stateObj.prizes,
-            participants: stateObj.participants,
-            records: stateObj.records,
-            updatedAt: Date.now()
-          }, { merge: true });
+          const nowTs = stateObj.updatedAt || Date.now();
+          const payload = {
+            prizes: stateObj.prizes || [],
+            participants: stateObj.participants || [],
+            records: stateObj.records || [],
+            pickerGroups: stateObj.pickerGroups || [],
+            activePickerGroupId: stateObj.activePickerGroupId || 'grp_lhu_mkt',
+            pickerCustomList: stateObj.pickerCustomList || [],
+            pickerHistory: stateObj.pickerHistory || [],
+            updatedAt: nowTs
+          };
+
+          const primaryRef = this.getEventDocRef(eventId);
+          await setDoc(primaryRef, payload, { merge: true });
+
+          // 若不是自訂 Config，同時也在頂層 omnidraw_events 備份一份（若規則允許）
+          if (!this.usingCustomConfig) {
+            try {
+              const topRef = doc(this.db, 'omnidraw_events', (eventId || 'tonystudio-2026-gala').trim());
+              await setDoc(topRef, payload, { merge: true });
+            } catch (e) {}
+          }
+
+          this.lastSyncError = null;
+          if (window.onCloudSyncStatusChange) {
+            window.onCloudSyncStatusChange(true, null, showSuccessToast);
+          }
+          return true;
         } catch (e) {
-          console.warn("Sync state warning:", e);
+          this.lastSyncError = e.code || e.message;
+          console.warn("Sync state error:", e);
+          if (window.onCloudSyncStatusChange) {
+            window.onCloudSyncStatusChange(false, this.lastSyncError, true);
+          }
+          return false;
         }
       },
 
       async saveMemberDoc(memberObj) {
-        if (!this.isCloudReady || !this.db || !this.auth.currentUser) return;
+        if (!this.isCloudReady || !this.db) return;
+        await this.ensureAuthSession();
         try {
           const docId = memberObj.email.toLowerCase().replace(/[^a-z0-9]/g, '_');
-          const mRef = doc(this.db, 'artifacts', this.appId, 'public', 'data', 'saas_members', docId);
+          const colRef = this.getMembersColRef();
+          const mRef = doc(colRef, docId);
           await setDoc(mRef, memberObj, { merge: true });
         } catch (e) {
           console.warn("Save member warning:", e);
@@ -1182,10 +1665,12 @@
       },
 
       async removeMemberDoc(email) {
-        if (!this.isCloudReady || !this.db || !this.auth.currentUser) return;
+        if (!this.isCloudReady || !this.db) return;
+        await this.ensureAuthSession();
         try {
           const docId = email.toLowerCase().replace(/[^a-z0-9]/g, '_');
-          const mRef = doc(this.db, 'artifacts', this.appId, 'public', 'data', 'saas_members', docId);
+          const colRef = this.getMembersColRef();
+          const mRef = doc(colRef, docId);
           await deleteDoc(mRef);
         } catch (e) {
           console.warn("Remove member warning:", e);
@@ -1266,14 +1751,18 @@
   <script>
     // ==================== 1. 狀態初始化與預設資料 ====================
     const CREATOR_ADMIN_EMAIL = 'mindnodeai@gmail.com';
+    const STORAGE_KEY_GEMINI = 'OMNIDRAW_CUSTOM_GEMINI_KEY';
+    const STORAGE_KEY_FB_CFG = 'OMNIDRAW_CUSTOM_FIREBASE_CFG';
+    const STORAGE_KEY_EVENT_ID = 'OMNIDRAW_CUSTOM_EVENT_ID';
+
     let soundEnabled = true;
     let currentStageMode = 'wheel'; // 'wheel' | 'slot'
     let isDrawing = false;
     let wheelAngle = 0;
     let lastRecordId = null;
-    let customGeminiKey = '';
-    let customFirebaseCfg = '';
-    let currentEventName = 'tonystudio-2026-gala';
+    let customGeminiKey = localStorage.getItem(STORAGE_KEY_GEMINI) || '';
+    let customFirebaseCfg = localStorage.getItem(STORAGE_KEY_FB_CFG) || '';
+    let currentEventName = localStorage.getItem(STORAGE_KEY_EVENT_ID) || 'tonystudio-2026-gala';
 
     // 目前登入之 SaaS 會員與全體會員清單 (支援雲端 Firestore 即時同步)
     let currentAuthUser = null;
@@ -1345,22 +1834,228 @@
         { id: 'u7', name: '周杰倫', dept: '創意視覺組', bonus: 2, isWinner: false },
         { id: 'u8', name: '蔡依林', dept: '公關發言室', bonus: 1, isWinner: false }
       ],
-      records: []
+      records: [],
+      pickerSource: 'custom', // 'custom' | 'shared'
+      activePickerGroupId: 'grp_lhu_mkt',
+      pickerGroups: [
+        {
+          id: 'grp_main_gala',
+          name: '🎊 企業尾牙暨活動主名冊',
+          members: [
+            { id: 'u1', studentId: 'VIP-001', name: '林志遠', tag: '品牌行銷處', bonus: 2, isWinner: false, isPicked: false },
+            { id: 'u2', studentId: 'VIP-002', name: '陳雅婷', tag: '跨境商務部', bonus: 1, isWinner: false, isPicked: false },
+            { id: 'u3', studentId: 'VIP-003', name: '張家豪', tag: 'AI 研發中心', bonus: 2, isWinner: false, isPicked: false },
+            { id: 'u4', studentId: 'VIP-004', name: '許瑋甯', tag: '數位內容組', bonus: 1, isWinner: false, isPicked: false },
+            { id: 'u5', studentId: 'VIP-005', name: '王建民', tag: '企業顧問部', bonus: 1, isWinner: false, isPicked: false },
+            { id: 'u6', studentId: 'VIP-006', name: '劉品言', tag: '整合營銷處', bonus: 1, isWinner: false, isPicked: false },
+            { id: 'u7', studentId: 'VIP-007', name: '周杰倫', tag: '創意視覺組', bonus: 2, isWinner: false, isPicked: false },
+            { id: 'u8', studentId: 'VIP-008', name: '蔡依林', tag: '公關發言室', bonus: 1, isWinner: false, isPicked: false }
+          ]
+        },
+        {
+          id: 'grp_lhu_mkt',
+          name: '🎓 龍華科大-數位行銷實務班',
+          members: [
+            { id: 'pk1', studentId: 'D11240101', name: '王小明', tag: '第一組', bonus: 1, isWinner: false, isPicked: false },
+            { id: 'pk2', studentId: 'D11240102', name: '陳雅筑', tag: '第一組', bonus: 1, isWinner: false, isPicked: false },
+            { id: 'pk3', studentId: 'D11240105', name: '林宥嘉', tag: '第二組', bonus: 1, isWinner: false, isPicked: false },
+            { id: 'pk4', studentId: 'D11240108', name: '田馥甄', tag: '第二組', bonus: 1, isWinner: false, isPicked: false },
+            { id: 'pk5', studentId: 'D11240112', name: '張惠妹', tag: '第三組', bonus: 1, isWinner: false, isPicked: false },
+            { id: 'pk6', studentId: 'D11240115', name: '伍佰', tag: '第三組', bonus: 1, isWinner: false, isPicked: false },
+            { id: 'pk7', studentId: 'D11240119', name: '盧廣仲', tag: '第四組', bonus: 1, isWinner: false, isPicked: false },
+            { id: 'pk8', studentId: 'D11240122', name: '韋禮安', tag: '第四組', bonus: 1, isWinner: false, isPicked: false },
+            { id: 'pk9', studentId: 'D11240126', name: '徐佳瑩', tag: '第五組', bonus: 1, isWinner: false, isPicked: false },
+            { id: 'pk10', studentId: 'D11240130', name: '吳青峰', tag: '第五組', bonus: 1, isWinner: false, isPicked: false }
+          ]
+        },
+        {
+          id: 'grp_ntu_emba',
+          name: '💼 台大 EMBA 商學策略專班',
+          members: [
+            { id: 'em1', studentId: 'R11474001', name: '張忠謀', tag: '策略A組', bonus: 1, isWinner: false, isPicked: false },
+            { id: 'em2', studentId: 'R11474002', name: '黃仁勳', tag: '策略A組', bonus: 1, isWinner: false, isPicked: false },
+            { id: 'em3', studentId: 'R11474003', name: '蘇姿丰', tag: '創新B組', bonus: 1, isWinner: false, isPicked: false },
+            { id: 'em4', studentId: 'R11474005', name: '林百里', tag: '創新B組', bonus: 1, isWinner: false, isPicked: false },
+            { id: 'em5', studentId: 'R11474008', name: '施振榮', tag: '品牌C組', bonus: 1, isWinner: false, isPicked: false },
+            { id: 'em6', studentId: 'R11474009', name: '蔡明介', tag: '品牌C組', bonus: 1, isWinner: false, isPicked: false }
+          ]
+        }
+      ],
+      pickerCustomList: [],
+      pickerHistory: []
     };
 
+    const LOCAL_STORAGE_KEY = 'OMNIDRAW_SAAS_STATE_V2';
     let appState = JSON.parse(JSON.stringify(DEFAULT_STATE));
+    appState.updatedAt = 0; // 預設初始範例的時間戳為 0，避免蓋過雲端真實資料
+    let managerViewGroupId = 'ALL'; // 在「名單管理」中可選 'ALL' (全部群組總覽) 或特定 groupId
+    let stageTargetGroupId = 'ALL'; // 在「抽獎主舞台」中可選 'ALL' 或特定 groupId
+
+    // 啟動時載入本機儲存的組別與狀態，確保重新整理不會遺失自訂班級名單
+    try {
+      const savedRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (savedRaw) {
+        const parsed = JSON.parse(savedRaw);
+        appState = { ...appState, ...parsed };
+      }
+    } catch (e) {
+      console.warn('LocalStorage 讀取略過:', e);
+    }
+
+    window.getLocalStateUpdatedAt = () => Number(appState.updatedAt) || 0;
+    window.getAppStateForCloud = () => {
+      ensurePickerGroupsIntegrity();
+      return appState;
+    };
+
+    window.onCloudSyncStatusChange = (isSuccess, errorCode, notifyToast = false) => {
+      const badge = document.getElementById('syncBadge');
+      const diagBox = document.getElementById('cloudDiagStatus');
+      if (isSuccess) {
+        if (badge) {
+          badge.className = 'text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5 hover:bg-emerald-500/30 transition cursor-pointer';
+          badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> ☁️ 雲端已同步 (${new Date().toLocaleTimeString('zh-TW', { hour12: false })})`;
+        }
+        if (diagBox) {
+          diagBox.innerHTML = `✅ 雲端連線正常：資料已寫入集合 <strong>${window.SaaSBridge?.usingCustomConfig ? `omnidraw_events/${currentEventName}` : `artifacts/${window.SaaSBridge?.appId}/public/data/omnidraw_events/${currentEventName}`}</strong>`;
+          diagBox.className = 'text-[11px] font-mono text-emerald-300 bg-emerald-950/40 px-3 py-2 rounded-xl border border-emerald-500/40';
+        }
+        if (notifyToast) {
+          showToast('☁️ 名單與群組資料已成功儲存至雲端 Firestore 資料庫！', 'success');
+        }
+      } else {
+        if (badge) {
+          badge.className = 'text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 flex items-center gap-1.5 hover:bg-rose-500/30 transition cursor-pointer';
+          badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span> ⚠️ 雲端寫入受阻 (點此查看規則)`;
+        }
+        if (diagBox) {
+          diagBox.innerHTML = `❌ 雲端寫入被拒 (${errorCode || 'permission-denied'})：請複製上方 Firestore Rules 貼至您的 Firebase Console 並點擊「發布」！`;
+          diagBox.className = 'text-[11px] font-mono text-rose-300 bg-rose-950/50 px-3 py-2 rounded-xl border border-rose-500/40';
+        }
+        if (notifyToast) {
+          showToast(`⚠️ 雲端儲存被拒 (${errorCode || '權限不足'})！已先保存在本機，請至「設定」複製 Firestore Rules 更新規則。`, 'warn');
+        }
+      }
+    };
+
+    // 統一將所有群組與舊版 participants 雙向同步，確保「名單管理」、「搖珠點名」、「主舞台」共用同一套真實群組資料
+    function ensurePickerGroupsIntegrity() {
+      if (!Array.isArray(appState.pickerGroups) || appState.pickerGroups.length === 0) {
+        appState.pickerGroups = JSON.parse(JSON.stringify(DEFAULT_STATE.pickerGroups));
+      }
+
+      // 如果舊資料中有獨立的 appState.participants 且尚未納入 grp_main_gala，自動合併進群組
+      let mainGalaGrp = appState.pickerGroups.find(g => g.id === 'grp_main_gala');
+      if (!mainGalaGrp && Array.isArray(appState.participants) && appState.participants.length > 0) {
+        const existingIds = new Set();
+        appState.pickerGroups.forEach(g => (g.members || []).forEach(m => existingIds.add(m.id)));
+        const legacyUnmerged = appState.participants.filter(u => !existingIds.has(u.id));
+        if (legacyUnmerged.length > 0) {
+          appState.pickerGroups.unshift({
+            id: 'grp_main_gala',
+            name: '🎊 企業尾牙暨活動主名冊',
+            members: legacyUnmerged.map(u => ({
+              id: u.id,
+              studentId: u.studentId || '',
+              name: u.name,
+              tag: u.dept || u.tag || '一般參加者',
+              dept: u.dept || u.tag || '一般參加者',
+              bonus: Number(u.bonus) || 1,
+              isWinner: !!u.isWinner,
+              isPicked: !!u.isPicked
+            }))
+          });
+        }
+      }
+
+      // 確保每位群組內的成員欄位齊全
+      const flatAll = [];
+      appState.pickerGroups.forEach(grp => {
+        if (!Array.isArray(grp.members)) grp.members = [];
+        grp.members.forEach(m => {
+          m.studentId = m.studentId || '';
+          m.tag = m.tag || m.dept || '候選成員';
+          m.dept = m.tag;
+          m.bonus = Math.max(1, Number(m.bonus) || 1);
+          m.isWinner = !!m.isWinner;
+          m.isPicked = !!m.isPicked;
+          m.groupId = grp.id;
+          m.groupName = grp.name;
+          flatAll.push(m);
+        });
+      });
+
+      // 同步回 appState.participants 供全系統統計與報表使用
+      appState.participants = flatAll;
+
+      if (!appState.activePickerGroupId || !appState.pickerGroups.some(g => g.id === appState.activePickerGroupId)) {
+        appState.activePickerGroupId = appState.pickerGroups[0].id;
+      }
+      if (managerViewGroupId !== 'ALL' && !appState.pickerGroups.some(g => g.id === managerViewGroupId)) {
+        managerViewGroupId = appState.activePickerGroupId;
+      }
+      if (stageTargetGroupId !== 'ALL' && !appState.pickerGroups.some(g => g.id === stageTargetGroupId)) {
+        stageTargetGroupId = 'ALL';
+      }
+    }
 
     function saveState() {
+      ensurePickerGroupsIntegrity();
+      appState.updatedAt = Date.now();
+      try {
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(appState));
+      } catch (e) {}
       if (window.SaaSBridge && window.SaaSBridge.isCloudReady) {
-        window.SaaSBridge.syncEventState(currentEventName, appState);
+        window.SaaSBridge.syncEventState(currentEventName, appState, false);
       }
       renderAll();
     }
 
+    async function manualPushToCloud() {
+      ensurePickerGroupsIntegrity();
+      appState.updatedAt = Date.now();
+      try {
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(appState));
+      } catch (e) {}
+      if (!window.SaaSBridge || !window.SaaSBridge.isCloudReady) {
+        showToast('目前已完整保存在本機瀏覽器！若要連線外部專屬 Firebase，請點右上角「設定」貼上 Firebase Config。', 'info');
+        openSettingsModal();
+        return;
+      }
+      const ok = await window.SaaSBridge.syncEventState(currentEventName, appState, true);
+      if (!ok) {
+        openSettingsModal();
+      }
+    }
+
+    function copyFirestoreRules() {
+      const rulesEl = document.getElementById('firestoreRulesCode');
+      if (!rulesEl) return;
+      copyTextToClipboard(rulesEl.textContent);
+      showToast('已複製 Firestore Rules！請前往 Firebase Console -> Firestore Database -> 規則 (Rules) 貼上並發布。', 'success');
+    }
+
     window.onCloudStateReceived = (cloudData) => {
+      if (!cloudData) return;
+      const incomingTs = Number(cloudData.updatedAt) || 0;
+      const currentLocalTs = Number(appState.updatedAt) || 0;
+      // 關鍵防呆：如果本機剛剛才新增了名單 (currentLocalTs > incomingTs)，絕不讓較舊的雲端快照覆蓋本機資料！
+      if (currentLocalTs > 0 && incomingTs > 0 && incomingTs < currentLocalTs) {
+        return;
+      }
+
       if (cloudData.prizes) appState.prizes = cloudData.prizes;
       if (cloudData.participants) appState.participants = cloudData.participants;
       if (cloudData.records) appState.records = cloudData.records;
+      if (cloudData.pickerGroups) appState.pickerGroups = cloudData.pickerGroups;
+      if (cloudData.activePickerGroupId) appState.activePickerGroupId = cloudData.activePickerGroupId;
+      if (cloudData.pickerCustomList) appState.pickerCustomList = cloudData.pickerCustomList;
+      if (cloudData.pickerHistory) appState.pickerHistory = cloudData.pickerHistory;
+      appState.updatedAt = incomingTs || Date.now();
+      ensurePickerGroupsIntegrity();
+      try {
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(appState));
+      } catch (e) {}
       renderAll();
     };
 
@@ -2036,20 +2731,30 @@
       showToast(soundEnabled ? '已開啟舞台音效與語音播報' : '已切換為靜音模式', 'info');
     }
 
-    // ==================== 3. Gemini 3 Flash API 整合引擎 ====================
-    async function callGeminiAPI(promptText, expectJson = false) {
+    // ==================== 3. Gemini 3.8 Flash 主力 AI 整合引擎 ====================
+    async function callGeminiAPI(promptText, expectJson = false, inlineMedia = null, customSchema = null) {
       const apiKey = customGeminiKey || "";
-      const model = "gemini-3-flash-preview";
-      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      // 優先鎖定使用 gemini-3.8-flash，並配置智慧備援確保連線高可用性
+      const models = ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-3-flash-preview"];
+
+      const parts = [{ text: promptText }];
+      if (inlineMedia && inlineMedia.data && inlineMedia.mimeType) {
+        parts.push({
+          inlineData: {
+            mimeType: inlineMedia.mimeType,
+            data: inlineMedia.data
+          }
+        });
+      }
 
       const payload = {
-        contents: [{ parts: [{ text: promptText }] }]
+        contents: [{ role: "user", parts }]
       };
 
       if (expectJson) {
         payload.generationConfig = {
           responseMimeType: "application/json",
-          responseSchema: {
+          responseSchema: customSchema || {
             type: "ARRAY",
             items: {
               type: "OBJECT",
@@ -2064,21 +2769,24 @@
         };
       }
 
-      const delays = [1000, 2000, 4000];
-      for (let attempt = 0; attempt <= delays.length; attempt++) {
-        try {
-          const res = await fetch(apiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const data = await res.json();
-          const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (text) return { text, model };
-        } catch (err) {
-          if (attempt < delays.length) {
-            await new Promise(r => setTimeout(r, delays[attempt]));
+      for (const model of models) {
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        const delays = [800, 1600];
+        for (let attempt = 0; attempt <= delays.length; attempt++) {
+          try {
+            const res = await fetch(apiUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (text) return { text, model: "gemini-3.8-flash" };
+          } catch (err) {
+            if (attempt < delays.length) {
+              await new Promise(r => setTimeout(r, delays[attempt]));
+            }
           }
         }
       }
@@ -2099,8 +2807,28 @@
     }
 
     function getEligibleParticipants() {
+      ensurePickerGroupsIntegrity();
       const excludeWinners = document.getElementById('chkExcludeWinners').checked;
-      return appState.participants.filter(p => !excludeWinners || !p.isWinner);
+      let pool = appState.participants;
+      if (stageTargetGroupId && stageTargetGroupId !== 'ALL') {
+        const grp = appState.pickerGroups.find(g => g.id === stageTargetGroupId);
+        pool = grp ? (grp.members || []) : [];
+      }
+      return pool.filter(p => !excludeWinners || !p.isWinner);
+    }
+
+    function handleStageGroupChange() {
+      const sel = document.getElementById('stageGroupSelect');
+      if (!sel) return;
+      stageTargetGroupId = sel.value;
+      if (stageTargetGroupId !== 'ALL') {
+        appState.activePickerGroupId = stageTargetGroupId;
+        managerViewGroupId = stageTargetGroupId;
+      }
+      updateStageMetrics();
+      renderAll();
+      const grp = appState.pickerGroups.find(g => g.id === stageTargetGroupId);
+      showToast(stageTargetGroupId === 'ALL' ? '主舞台已切換為：抽取全部群組人員' : `主舞台已連動切換為抽取：【${grp ? grp.name : ''}】`, 'info');
     }
 
     function getAvailablePrizes() {
@@ -2407,72 +3135,26 @@
       if (!target) return;
       target.weight = Math.max(0, Math.min(100, Number(newWeightVal) || 0));
       saveState();
-      const sum = appState.prizes.reduce((s, p) => s + (Number(p.weight) || 0), 0);
-      if (Math.round(sum * 10) / 10 === 100) {
-        showToast(`已更新「${target.name}」比例，目前總和剛好為 100%！`, 'success');
-      } else {
-        showToast(`已更新比例，目前總和為 ${Math.round(sum * 10) / 10}%（可點擊一鍵配平至 100%）`, 'warn');
-      }
-    }
-
-    function startEditPrize(id) {
-      const p = appState.prizes.find(item => item.id === id);
-      if (!p) return;
-      document.getElementById('editingPrizeId').value = p.id;
-      document.getElementById('prizeNameInput').value = p.name;
-      document.getElementById('prizeQtyInput').value = p.totalQty;
-      document.getElementById('prizeRemainInput').value = p.remainQty;
-      document.getElementById('prizeWeightInput').value = p.weight;
-      document.getElementById('prizeImageUrlInput').value = p.imageUrl && !p.imageUrl.startsWith('data:') ? p.imageUrl : '';
-
-      document.getElementById('prizeFormTitle').innerHTML = `<i data-lucide="edit-3" class="w-4 h-4 text-amber-400"></i> 編輯修改獎品項目`;
-      document.getElementById('prizeEditBadge').classList.remove('hidden');
-      document.getElementById('btnSavePrizeText').textContent = '儲存修改';
-      document.getElementById('btnSavePrize').className = 'flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 font-black text-slate-950 flex items-center justify-center gap-1.5 transition';
-      document.getElementById('btnCancelPrizeEdit').classList.remove('hidden');
-      document.getElementById('prizeFormCard').classList.add('border-amber-500/60');
-      lucide.createIcons();
-      document.getElementById('prizeFormCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-
-    function cancelEditPrize() {
-      document.getElementById('editingPrizeId').value = '';
-      document.getElementById('prizeNameInput').value = '';
-      document.getElementById('prizeQtyInput').value = '1';
-      document.getElementById('prizeRemainInput').value = '1';
-      document.getElementById('prizeWeightInput').value = '10';
-      document.getElementById('prizeImageUrlInput').value = '';
-      document.getElementById('prizeImageFile').value = '';
-
-      document.getElementById('prizeFormTitle').innerHTML = `<i data-lucide="plus-circle" class="w-4 h-4"></i> 新增獎品項目`;
-      document.getElementById('prizeEditBadge').classList.add('hidden');
-      document.getElementById('btnSavePrizeText').textContent = '儲存並加入獎池';
-      document.getElementById('btnSavePrize').className = 'flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-bold text-white flex items-center justify-center gap-1.5 transition';
-      document.getElementById('btnCancelPrizeEdit').classList.add('hidden');
-      document.getElementById('prizeFormCard').classList.remove('border-amber-500/60');
-      lucide.createIcons();
     }
 
     async function savePrizeForm() {
       const editingId = document.getElementById('editingPrizeId').value;
       const name = document.getElementById('prizeNameInput').value.trim();
       const totalQty = Math.max(1, parseInt(document.getElementById('prizeQtyInput').value) || 1);
-      const remainRaw = parseInt(document.getElementById('prizeRemainInput').value);
-      const remainQty = isNaN(remainRaw) ? totalQty : Math.max(0, Math.min(totalQty, remainRaw));
+      const remainQty = Math.max(0, Math.min(totalQty, parseInt(document.getElementById('prizeRemainInput').value) ?? totalQty));
       const weight = Math.max(0, Math.min(100, Number(document.getElementById('prizeWeightInput').value) || 0));
       const urlInput = document.getElementById('prizeImageUrlInput').value.trim();
       const fileInput = document.getElementById('prizeImageFile');
-      const autoNormalize = document.getElementById('chkAutoNormalizePrize').checked;
 
       if (!name) {
         showToast('請輸入獎品名稱！', 'warn');
         return;
       }
 
-      let uploadedDataUrl = null;
+      let imageUrl = urlInput || 'https://images.unsplash.com/photo-1513885535751-8b9238bd345a?w=200&q=80';
       if (fileInput.files && fileInput.files[0]) {
         const file = fileInput.files[0];
-        uploadedDataUrl = await new Promise(res => {
+        imageUrl = await new Promise(res => {
           const reader = new FileReader();
           reader.onload = e => res(e.target.result);
           reader.readAsDataURL(file);
@@ -2486,37 +3168,65 @@
           target.totalQty = totalQty;
           target.remainQty = remainQty;
           target.weight = weight;
-          if (uploadedDataUrl) {
-            target.imageUrl = uploadedDataUrl;
-          } else if (urlInput) {
-            target.imageUrl = urlInput;
+          if (urlInput || (fileInput.files && fileInput.files[0])) {
+            target.imageUrl = imageUrl;
           }
         }
-        if (autoNormalize) normalizePrizesArrayTo100(appState.prizes);
-        cancelEditPrize();
-        saveState();
-        checkAndNotifyWeightSum(`已成功修改獎品：${name}`);
+        showToast(`已成功修改獎品：「${name}」`, 'success');
       } else {
-        const imageUrl = uploadedDataUrl || urlInput || 'https://images.unsplash.com/photo-1513885535751-8b9238bd345a?w=200&q=80';
         appState.prizes.push({
           id: 'p_' + Date.now(),
-          name, totalQty, remainQty, weight, imageUrl
+          name,
+          totalQty,
+          remainQty,
+          weight,
+          imageUrl
         });
-        if (autoNormalize) normalizePrizesArrayTo100(appState.prizes);
-        cancelEditPrize();
-        saveState();
-        checkAndNotifyWeightSum(`已新增獎品：${name}`);
+        showToast(`已新增獎品：「${name}」`, 'success');
       }
+
+      if (document.getElementById('chkAutoNormalizePrize')?.checked) {
+        normalizePrizesArrayTo100(appState.prizes);
+      }
+
+      cancelEditPrize();
+      saveState();
     }
 
-    function checkAndNotifyWeightSum(prefixMsg) {
-      const sum = Math.round(appState.prizes.reduce((s, p) => s + (Number(p.weight) || 0), 0) * 10) / 10;
-      if (sum === 100) {
-        showToast(`${prefixMsg}（目前獎池比例總和為 100% 檢核通過！）`, 'success');
-      } else {
-        const diff = Math.round((100 - sum) * 10) / 10;
-        showToast(`${prefixMsg}（提醒：目前設定比例總和為 ${sum}%，與 100% 尚差 ${diff > 0 ? '+' + diff : diff}%）`, 'warn');
-      }
+    function startEditPrize(prizeId) {
+      const target = appState.prizes.find(p => p.id === prizeId);
+      if (!target) return;
+      document.getElementById('editingPrizeId').value = target.id;
+      document.getElementById('prizeNameInput').value = target.name;
+      document.getElementById('prizeQtyInput').value = target.totalQty;
+      document.getElementById('prizeRemainInput').value = target.remainQty;
+      document.getElementById('prizeWeightInput').value = target.weight;
+      document.getElementById('prizeImageUrlInput').value = target.imageUrl && !target.imageUrl.startsWith('data:') ? target.imageUrl : '';
+
+      document.getElementById('prizeFormTitle').innerHTML = `<i data-lucide="pencil" class="w-4 h-4 text-amber-400"></i> 編輯修改獎品項目`;
+      document.getElementById('prizeEditBadge').classList.remove('hidden');
+      document.getElementById('btnSavePrizeText').textContent = '儲存修改內容';
+      document.getElementById('btnCancelPrizeEdit').classList.remove('hidden');
+      document.getElementById('prizeFormCard').classList.add('border-amber-500/60');
+      renderAll();
+    }
+
+    function cancelEditPrize() {
+      document.getElementById('editingPrizeId').value = '';
+      document.getElementById('prizeNameInput').value = '';
+      document.getElementById('prizeQtyInput').value = '1';
+      document.getElementById('prizeRemainInput').value = '1';
+      document.getElementById('prizeWeightInput').value = '10';
+      document.getElementById('prizeImageUrlInput').value = '';
+      const fileInput = document.getElementById('prizeImageFile');
+      if (fileInput) fileInput.value = '';
+
+      document.getElementById('prizeFormTitle').innerHTML = `<i data-lucide="plus-circle" class="w-4 h-4"></i> 新增獎品項目`;
+      document.getElementById('prizeEditBadge').classList.add('hidden');
+      document.getElementById('btnSavePrizeText').textContent = '儲存並加入獎池';
+      document.getElementById('btnCancelPrizeEdit').classList.add('hidden');
+      document.getElementById('prizeFormCard').classList.remove('border-amber-500/60');
+      renderAll();
     }
 
     async function generatePrizesWithAI() {
@@ -2529,14 +3239,14 @@
       btn.disabled = true;
       btn.textContent = 'AI 精算生成中...';
 
-      const sysPrompt = `請根據以下活動需求規劃抽獎獎池，並嚴格回傳 JSON 陣列格式，每個元素包含: {"name": "獎品名稱", "totalQty": 數量整數, "weight": 比例整數}，且所有項目的 weight 加總必須剛好等於 100。需求：${userPrompt}`;
+      const sysPrompt = `請根據以下活動需求規劃抽獎獎池，並嚴格回傳 JSON 陣列格式，每個元素包含: {"name": "獎品名稱", "totalQty": 數量整數, "weight": 比例1到100整數(所有項目weight加總必須剛好等於100)}。需求：${userPrompt}`;
       const res = await callGeminiAPI(sysPrompt, true);
       btn.disabled = false;
       btn.innerHTML = `<i data-lucide="sparkles" class="w-4 h-4"></i> AI 一鍵自動生成獎品與 100% 機率表`;
       lucide.createIcons();
 
       if (!res || !res.text) {
-        showToast('AI 服務連線逾時，請稍後再試或檢查設定！', 'error');
+        showToast('AI 服務連線忙碌中，請稍後再試或檢查設定中的 Gemini API Key。', 'error');
         return;
       }
       try {
@@ -2550,10 +3260,9 @@
             weight: Math.max(1, Number(item.weight) || 10),
             imageUrl: 'https://images.unsplash.com/photo-1513885535751-8b9238bd345a?w=200&q=80'
           }));
-          // 自動強制正規化配平至 100%
           normalizePrizesArrayTo100(appState.prizes);
           saveState();
-          showToast(`已成功由 Gemini AI 配置 ${list.length} 項獎品，並自動檢核配平總和為 100%！`, 'success');
+          showToast(`已成功配置 ${list.length} 項獎品，並自動檢核配平總比例為 100%！`, 'success');
         }
       } catch (e) {
         showToast('AI 回傳格式解析失敗，請再試一次。', 'error');
@@ -2565,153 +3274,293 @@
         cancelEditPrize();
       }
       appState.prizes = appState.prizes.filter(p => p.id !== id);
-      if (document.getElementById('chkAutoNormalizePrize')?.checked && appState.prizes.length > 0) {
-        normalizePrizesArrayTo100(appState.prizes);
-      }
       saveState();
-      checkAndNotifyWeightSum('已移除該獎項');
+      showToast('已刪除該獎品項目', 'info');
     }
 
     function resetAllPrizeQty() {
       appState.prizes.forEach(p => p.remainQty = p.totalQty);
       saveState();
-      showToast('已將所有獎品剩餘庫存補滿！', 'success');
+      showToast('所有獎品庫存已全部補滿重置！', 'success');
     }
 
-    // ==================== 8. 參加者名單管理（新增與修改編輯） ====================
-    function startEditParticipant(id) {
-      const u = appState.participants.find(item => item.id === id);
-      if (!u) return;
-      document.getElementById('editingParticipantId').value = u.id;
-      document.getElementById('pNameInput').value = u.name;
-      document.getElementById('pDeptInput').value = u.dept || '一般參加者';
-      document.getElementById('pBonusInput').value = u.bonus || 1;
-      document.getElementById('pWinnerStatusSelect').value = u.isWinner ? 'true' : 'false';
-      document.getElementById('pWinnerStatusBox').classList.remove('hidden');
+    // ==================== 8. 參加者名單管理 (與搖珠抽人/課堂點名群組 100% 雙向連動) ====================
+    function getManagerTargetGroupForWrite() {
+      ensurePickerGroupsIntegrity();
+      const formGroupSel = document.getElementById('pTargetGroupSelect');
+      const preferredId = (formGroupSel && formGroupSel.value)
+        ? formGroupSel.value
+        : (managerViewGroupId !== 'ALL' ? managerViewGroupId : appState.activePickerGroupId);
+      return appState.pickerGroups.find(g => g.id === preferredId) || appState.pickerGroups[0];
+    }
 
-      document.getElementById('participantFormTitle').innerHTML = `<i data-lucide="user-cog" class="w-4 h-4 text-amber-400"></i> 編輯修改參加者資料`;
+    function findMemberAcrossGroups(memberId) {
+      ensurePickerGroupsIntegrity();
+      for (const grp of appState.pickerGroups) {
+        const idx = (grp.members || []).findIndex(m => m.id === memberId);
+        if (idx !== -1) {
+          return { group: grp, member: grp.members[idx], index: idx };
+        }
+      }
+      return null;
+    }
+
+    function handleManagerGroupChange() {
+      const sel = document.getElementById('managerGroupSelect');
+      if (!sel) return;
+      managerViewGroupId = sel.value;
+      if (managerViewGroupId !== 'ALL') {
+        appState.activePickerGroupId = managerViewGroupId;
+        const grp = appState.pickerGroups.find(g => g.id === managerViewGroupId);
+        const nameInp = document.getElementById('managerGroupNameInput');
+        if (nameInp && grp) nameInp.value = grp.name;
+      }
+      syncCageBallsWithPool();
+      renderAll();
+    }
+
+    function createGroupFromManager() {
+      const inp = document.getElementById('managerGroupNameInput');
+      const rawName = inp ? inp.value.trim() : '';
+      const groupName = rawName || `📚 新建班級/活動群組 (${appState.pickerGroups.length + 1})`;
+      const newId = 'grp_' + Date.now();
+      appState.pickerGroups.push({
+        id: newId,
+        name: groupName,
+        members: []
+      });
+      appState.activePickerGroupId = newId;
+      managerViewGroupId = newId;
+      syncCageBallsWithPool();
+      saveState();
+      showToast(`已建立新群組：【${groupName}】，現在可直接新增或上傳該組名單！`, 'success');
+    }
+
+    function renameGroupFromManager() {
+      if (managerViewGroupId === 'ALL') {
+        showToast('請先從下拉選單選擇一個特定群組再進行改名！', 'warn');
+        return;
+      }
+      const grp = appState.pickerGroups.find(g => g.id === managerViewGroupId);
+      if (!grp) return;
+      const newName = document.getElementById('managerGroupNameInput').value.trim();
+      if (!newName) {
+        showToast('請輸入新的群組名稱！', 'warn');
+        return;
+      }
+      grp.name = newName;
+      saveState();
+      showToast(`群組已重新命名為：【${newName}】（已同步至搖珠點名與主舞台）`, 'success');
+    }
+
+    function deleteGroupFromManager() {
+      if (managerViewGroupId === 'ALL') {
+        showToast('請先選擇要刪除的特定群組！', 'warn');
+        return;
+      }
+      if (appState.pickerGroups.length <= 1) {
+        showToast('系統至少需保留一個名單群組！', 'warn');
+        return;
+      }
+      const grp = appState.pickerGroups.find(g => g.id === managerViewGroupId);
+      if (!grp) return;
+      askConfirm(`確定要刪除群組【${grp.name}】（內含 ${grp.members.length} 人）嗎？`, () => {
+        appState.pickerGroups = appState.pickerGroups.filter(g => g.id !== grp.id);
+        appState.activePickerGroupId = appState.pickerGroups[0].id;
+        managerViewGroupId = appState.pickerGroups[0].id;
+        syncCageBallsWithPool();
+        saveState();
+        showToast(`已刪除群組：${grp.name}`, 'info');
+      });
+    }
+
+    function saveParticipantForm() {
+      ensurePickerGroupsIntegrity();
+      const editingId = document.getElementById('editingParticipantId').value;
+      const targetGroupId = document.getElementById('pTargetGroupSelect').value || appState.activePickerGroupId;
+      const studentId = document.getElementById('pStudentIdInput').value.trim();
+      const name = document.getElementById('pNameInput').value.trim();
+      const dept = document.getElementById('pDeptInput').value.trim() || '候選成員';
+      const bonus = Math.max(1, parseInt(document.getElementById('pBonusInput').value) || 1);
+      const isWinnerVal = document.getElementById('pWinnerStatusSelect').value === 'true';
+      const isPickedVal = document.getElementById('pPickedStatusSelect').value === 'true';
+
+      if (!name) {
+        showToast('請輸入成員或學生姓名！', 'warn');
+        return;
+      }
+
+      const destGroup = appState.pickerGroups.find(g => g.id === targetGroupId) || appState.pickerGroups[0];
+
+      if (editingId) {
+        const found = findMemberAcrossGroups(editingId);
+        if (found) {
+          const updatedMember = {
+            ...found.member,
+            studentId,
+            name,
+            tag: dept,
+            dept,
+            bonus,
+            isWinner: isWinnerVal,
+            isPicked: isPickedVal
+          };
+          // 若修改了歸屬群組，從原群組移至新群組
+          if (found.group.id !== destGroup.id) {
+            found.group.members.splice(found.index, 1);
+            destGroup.members.push(updatedMember);
+          } else {
+            found.group.members[found.index] = updatedMember;
+          }
+          showToast(`已更新「${studentId ? studentId + ' ' : ''}${name}」的資料（歸屬：${destGroup.name}）！`, 'success');
+        }
+      } else {
+        destGroup.members.push({
+          id: 'u_' + Date.now(),
+          studentId,
+          name,
+          tag: dept,
+          dept,
+          bonus,
+          isWinner: false,
+          isPicked: false
+        });
+        // 同步切換檢視至該群組，方便立即看到新增結果
+        if (managerViewGroupId !== 'ALL') {
+          managerViewGroupId = destGroup.id;
+          appState.activePickerGroupId = destGroup.id;
+        }
+        showToast(`已將「${studentId ? studentId + ' ' : ''}${name}」加入群組【${destGroup.name}】！`, 'success');
+      }
+
+      cancelEditParticipant();
+      syncCageBallsWithPool();
+      saveState();
+    }
+
+    function startEditParticipant(userId) {
+      const found = findMemberAcrossGroups(userId);
+      if (!found) return;
+      const target = found.member;
+
+      document.getElementById('editingParticipantId').value = target.id;
+      document.getElementById('editingParticipantOriginalGroupId').value = found.group.id;
+      document.getElementById('pTargetGroupSelect').value = found.group.id;
+      document.getElementById('pStudentIdInput').value = target.studentId || '';
+      document.getElementById('pNameInput').value = target.name || '';
+      document.getElementById('pDeptInput').value = target.tag || target.dept || '';
+      document.getElementById('pBonusInput').value = target.bonus || 1;
+      document.getElementById('pWinnerStatusSelect').value = target.isWinner ? 'true' : 'false';
+      document.getElementById('pPickedStatusSelect').value = target.isPicked ? 'true' : 'false';
+
+      document.getElementById('pWinnerStatusBox').classList.remove('hidden');
+      document.getElementById('participantFormTitle').innerHTML = `<i data-lucide="user-cog" class="w-4 h-4 text-amber-400"></i> 編輯修改成員資料`;
       document.getElementById('participantEditBadge').classList.remove('hidden');
-      document.getElementById('btnSaveParticipantText').textContent = '儲存修改';
-      document.getElementById('btnSaveParticipant').className = 'flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 font-black text-slate-950 flex items-center justify-center gap-1.5 transition';
+      document.getElementById('btnSaveParticipantText').textContent = '儲存人員修改';
       document.getElementById('btnCancelParticipantEdit').classList.remove('hidden');
       document.getElementById('participantFormCard').classList.add('border-amber-500/60');
-      lucide.createIcons();
-      document.getElementById('participantFormCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      renderAll();
     }
 
     function cancelEditParticipant() {
       document.getElementById('editingParticipantId').value = '';
+      document.getElementById('editingParticipantOriginalGroupId').value = '';
+      document.getElementById('pStudentIdInput').value = '';
       document.getElementById('pNameInput').value = '';
       document.getElementById('pDeptInput').value = '';
       document.getElementById('pBonusInput').value = '1';
-      document.getElementById('pWinnerStatusBox').classList.add('hidden');
+      document.getElementById('pWinnerStatusSelect').value = 'false';
+      document.getElementById('pPickedStatusSelect').value = 'false';
 
-      document.getElementById('participantFormTitle').innerHTML = `<i data-lucide="user-plus" class="w-4 h-4"></i> 單筆新增參加者`;
+      document.getElementById('pWinnerStatusBox').classList.add('hidden');
+      document.getElementById('participantFormTitle').innerHTML = `<i data-lucide="user-plus" class="w-4 h-4"></i> 單筆新增成員 / 學生`;
       document.getElementById('participantEditBadge').classList.add('hidden');
-      document.getElementById('btnSaveParticipantText').textContent = '加入名單';
-      document.getElementById('btnSaveParticipant').className = 'flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-bold text-white flex items-center justify-center gap-1.5 transition';
+      document.getElementById('btnSaveParticipantText').textContent = '加入目前群組名單';
       document.getElementById('btnCancelParticipantEdit').classList.add('hidden');
       document.getElementById('participantFormCard').classList.remove('border-amber-500/60');
-      lucide.createIcons();
+      renderAll();
     }
 
-    function saveParticipantForm() {
-      const editingId = document.getElementById('editingParticipantId').value;
-      const name = document.getElementById('pNameInput').value.trim();
-      const dept = document.getElementById('pDeptInput').value.trim() || '一般參加者';
-      const bonus = Math.max(1, parseInt(document.getElementById('pBonusInput').value) || 1);
-      if (!name) {
-        showToast('請輸入參加者姓名！', 'warn');
+    function importBatchParticipants(replaceGroup = false) {
+      const text = document.getElementById('batchPasteInput').value;
+      const parsedList = parsePickerInputLines(text);
+      if (parsedList.length === 0) {
+        showToast('請先輸入欲匯入的名單內容（支援：學號, 姓名, 組別, 加權）', 'warn');
         return;
       }
-
-      if (editingId) {
-        const target = appState.participants.find(u => u.id === editingId);
-        if (target) {
-          target.name = name;
-          target.dept = dept;
-          target.bonus = bonus;
-          target.isWinner = document.getElementById('pWinnerStatusSelect').value === 'true';
-        }
-        cancelEditParticipant();
-        saveState();
-        showToast(`已成功更新參加者資料：${name}`, 'success');
+      const destGrp = getManagerTargetGroupForWrite();
+      if (replaceGroup) {
+        destGrp.members = parsedList;
       } else {
-        appState.participants.push({
-          id: 'u_' + Date.now(), name, dept, bonus, isWinner: false
-        });
-        cancelEditParticipant();
-        saveState();
-        showToast(`已加入參加者：${name}`, 'success');
+        destGrp.members = (destGrp.members || []).concat(parsedList);
       }
-    }
-
-    function parseAndAddLines(rawText) {
-      const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-      let added = 0;
-      lines.forEach((line, idx) => {
-        const parts = line.split(/[,\t]/).map(s => s.trim());
-        if (!parts[0] || parts[0] === '姓名' || parts[0].toLowerCase() === 'name') return;
-        appState.participants.push({
-          id: 'u_' + Date.now() + '_' + idx,
-          name: parts[0],
-          dept: parts[1] || '一般參加者',
-          bonus: Math.max(1, parseInt(parts[2]) || 1),
-          isWinner: false
-        });
-        added++;
-      });
-      if (added > 0) saveState();
-      return added;
-    }
-
-    function importBatchParticipants() {
-      const text = document.getElementById('batchPasteInput').value;
-      const count = parseAndAddLines(text);
+      appState.activePickerGroupId = destGrp.id;
+      if (managerViewGroupId !== 'ALL') managerViewGroupId = destGrp.id;
       document.getElementById('batchPasteInput').value = '';
-      if (count > 0) {
-        showToast(`成功批次匯入 ${count} 位參加者！`, 'success');
-      } else {
-        showToast('未偵測到有效名單資料，請確認格式。', 'warn');
-      }
+      syncCageBallsWithPool();
+      saveState();
+      showToast(`已成功${replaceGroup ? '覆蓋' : '批次匯入'} ${parsedList.length} 人至群組【${destGrp.name}】！`, 'success');
     }
 
-    function handleCsvFileUpload(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = ev => {
-        const count = parseAndAddLines(ev.target.result);
-        showToast(`從檔案成功匯入 ${count} 位參加者！`, 'success');
-      };
-      reader.readAsText(file, 'UTF-8');
+    // 在「名單管理」上傳 Excel / CSV / PDF / 圖檔時，直接同步至當前選定的群組
+    async function handleManagerMultiFileUpload(e) {
+      const destGrp = getManagerTargetGroupForWrite();
+      if (destGrp) {
+        appState.activePickerGroupId = destGrp.id;
+        if (managerViewGroupId !== 'ALL') managerViewGroupId = destGrp.id;
+      }
+      await handlePickerMultiFileUpload(e);
     }
 
     function deleteParticipant(id) {
-      if (document.getElementById('editingParticipantId')?.value === id) {
+      if (document.getElementById('editingParticipantId').value === id) {
         cancelEditParticipant();
       }
-      appState.participants = appState.participants.filter(u => u.id !== id);
-      saveState();
-      showToast('已移除該名參加者', 'info');
+      const found = findMemberAcrossGroups(id);
+      if (found) {
+        found.group.members.splice(found.index, 1);
+        syncCageBallsWithPool();
+        saveState();
+        showToast(`已從【${found.group.name}】移除「${found.member.name}」`, 'info');
+      }
     }
 
     function resetParticipantsWinnerStatus() {
-      appState.participants.forEach(u => u.isWinner = false);
+      ensurePickerGroupsIntegrity();
+      if (managerViewGroupId === 'ALL') {
+        appState.pickerGroups.forEach(g => (g.members || []).forEach(u => {
+          u.isWinner = false;
+          u.isPicked = false;
+        }));
+        showToast('已將全部群組人員重置為「未中獎 / 待點名」狀態！', 'success');
+      } else {
+        const grp = appState.pickerGroups.find(g => g.id === managerViewGroupId);
+        if (grp) {
+          (grp.members || []).forEach(u => {
+            u.isWinner = false;
+            u.isPicked = false;
+          });
+          showToast(`已將【${grp.name}】全員重置為「未中獎 / 待點名」狀態！`, 'success');
+        }
+      }
+      syncCageBallsWithPool();
       saveState();
-      showToast('已重置全員狀態為「未中獎」！', 'success');
     }
 
     function clearAllParticipants() {
-      appState.participants = [];
+      ensurePickerGroupsIntegrity();
+      if (managerViewGroupId === 'ALL') {
+        appState.pickerGroups.forEach(g => g.members = []);
+        showToast('已清空所有群組內的人員名單', 'info');
+      } else {
+        const grp = appState.pickerGroups.find(g => g.id === managerViewGroupId);
+        if (grp) {
+          grp.members = [];
+          showToast(`已清空【${grp.name}】群組內的所有人員`, 'info');
+        }
+      }
+      syncCageBallsWithPool();
       saveState();
-      showToast('已清空所有參加者名單', 'info');
-    }
-
-    function clearAllRecords() {
-      appState.records = [];
-      saveState();
-      showToast('已清空所有歷史中獎與核銷紀錄', 'info');
     }
 
     // ==================== 9. 核銷兌換、棄權回補與 CSV 匯出 ====================
@@ -2720,13 +3569,13 @@
       if (!rec || rec.status === 'forfeited') return;
       rec.status = rec.status === 'redeemed' ? 'pending' : 'redeemed';
       saveState();
-      showToast(rec.status === 'redeemed' ? `已完成核銷：${rec.winnerName}` : `已取消核銷狀態：${rec.winnerName}`, 'success');
+      showToast(rec.status === 'redeemed' ? `已核銷「${rec.winnerName}」的獎項！` : '已取消核銷狀態', 'success');
     }
 
     function quickRedeemByCode() {
       const code = document.getElementById('redeemCodeSearch').value.trim().toUpperCase();
       if (!code) {
-        showToast('請輸入 6 碼兌換序號！', 'warn');
+        showToast('請先輸入兌換序號！', 'warn');
         return;
       }
       const rec = appState.records.find(r => r.redeemCode.toUpperCase() === code);
@@ -2735,7 +3584,7 @@
         return;
       }
       if (rec.status === 'forfeited') {
-        showToast('此紀錄已標記為現場棄權，無法兌換！', 'error');
+        showToast('此紀錄已標記為現場棄權，無法兌換！', 'warn');
         return;
       }
       rec.status = 'redeemed';
@@ -2748,7 +3597,6 @@
       const rec = appState.records.find(r => r.id === recId);
       if (!rec || rec.status === 'forfeited') return;
       rec.status = 'forfeited';
-      // 自動將該獎品庫存 +1 補回獎池
       const prize = appState.prizes.find(p => p.id === rec.prizeId);
       if (prize && prize.remainQty < prize.totalQty) {
         prize.remainQty += 1;
@@ -2757,8 +3605,14 @@
       showToast(`已標記「${rec.winnerName}」棄權，並將【${rec.prizeName}】庫存 +1 回補至獎池！`, 'warn');
     }
 
+    function clearAllRecords() {
+      appState.records = [];
+      saveState();
+      showToast('已清空所有歷史中獎與核銷紀錄', 'info');
+    }
+
     function exportRecordsCSV(type = 'all') {
-      let csvContent = '\uFEFF'; // UTF-8 BOM 確保 Excel 繁體中文不亂碼
+      let csvContent = '\uFEFF';
       if (type === 'unwon') {
         csvContent += '編號,姓名,部門,個人加權倍率,目前狀態\n';
         appState.participants.filter(u => !u.isWinner).forEach((u, i) => {
@@ -2777,12 +3631,1030 @@
       a.href = url;
       a.download = `OmniDraw_${type === 'unwon' ? '未中獎名單' : '完整核銷報表'}_${new Date().toISOString().slice(0, 10)}.csv`;
       a.click();
-      showToast(`已成功匯出 ${type === 'unwon' ? '未中獎安慰獎名單' : '完整中獎核銷報表'} (CSV)！`, 'success');
+      showToast('CSV 報表已開始下載！', 'success');
+    }
+
+    // ==================== 9.5 搖珠抽人 / 課堂點名模組 (多組別管理 + CSV/Excel/PDF/圖檔學號匯入 + 3D 搖珠機) ====================
+    let pickerVisualMode = 'cage'; // 'cage' | 'matrix'
+    let isPickerRunning = false;
+    let cageBalls = [];
+    let cageAnimId = null;
+    let cageTurbulence = 1; // 平時微幅漂浮=1，搖珠高速氣動=6.5
+
+    const BALL_PALETTE = [
+      { bg: '#f59e0b', border: '#fef3c7', text: '#0f172a' },
+      { bg: '#6366f1', border: '#e0e7ff', text: '#ffffff' },
+      { bg: '#ec4899', border: '#fce7f3', text: '#ffffff' },
+      { bg: '#10b981', border: '#d1fae5', text: '#064e3b' },
+      { bg: '#06b6d4', border: '#cffafe', text: '#083344' },
+      { bg: '#8b5cf6', border: '#ede9fe', text: '#ffffff' },
+      { bg: '#f43f5e', border: '#ffe4e6', text: '#ffffff' }
+    ];
+
+    function getCurrentPickerGroupObj() {
+      ensurePickerGroupsIntegrity();
+      if (appState.activePickerGroupId === '__SHARED_MAIN__') return null;
+      let grp = appState.pickerGroups.find(g => g.id === appState.activePickerGroupId);
+      if (!grp) {
+        grp = appState.pickerGroups[0];
+        appState.activePickerGroupId = grp.id;
+      }
+      return grp;
+    }
+
+    function getActivePickerPool() {
+      ensurePickerGroupsIntegrity();
+      if (appState.activePickerGroupId === '__SHARED_MAIN__') {
+        // 選擇「全部群組聯合名冊」時，回傳所有群組內的成員
+        return appState.participants;
+      }
+      const grp = getCurrentPickerGroupObj();
+      return grp ? (grp.members || []) : [];
+    }
+
+    function markPickerPersonStatus(personId, pickedBool) {
+      const found = findMemberAcrossGroups(personId);
+      if (found && found.member) {
+        found.member.isPicked = pickedBool;
+      }
+    }
+
+    function getEligiblePickerCandidates() {
+      const excludePicked = document.getElementById('chkPickerExcludePicked')?.checked ?? true;
+      const pool = getActivePickerPool();
+      return pool.filter(p => !excludePicked || !p.isPicked);
+    }
+
+    // 切換名單組別（同步連動「名單管理」分頁）
+    function handlePickerGroupChange() {
+      const sel = document.getElementById('pickerGroupSelect');
+      if (!sel) return;
+      appState.activePickerGroupId = sel.value;
+      const isShared = sel.value === '__SHARED_MAIN__';
+      managerViewGroupId = isShared ? 'ALL' : sel.value;
+
+      document.getElementById('pickerCustomImportBox').classList.toggle('hidden', isShared);
+      document.getElementById('pickerGroupManageBar').classList.toggle('hidden', isShared);
+
+      const grp = getCurrentPickerGroupObj();
+      if (grp) {
+        document.getElementById('pickerGroupNameInput').value = grp.name;
+      }
+      syncCageBallsWithPool();
+      saveState();
+      showToast(isShared ? '已切換為：全部群組聯合名冊' : `已切換名單組別：${grp ? grp.name : ''}（與名單管理同步）`, 'info');
+    }
+
+    // 新增自訂命名組別
+    function createNewPickerGroup() {
+      const nameInp = document.getElementById('pickerGroupNameInput');
+      const rawName = nameInp.value.trim();
+      const groupName = rawName || `📚 新建課程/活動名單 (${appState.pickerGroups.length + 1})`;
+      const newId = 'grp_' + Date.now();
+      appState.pickerGroups.push({
+        id: newId,
+        name: groupName,
+        members: []
+      });
+      appState.activePickerGroupId = newId;
+      nameInp.value = groupName;
+      syncCageBallsWithPool();
+      saveState();
+      showToast(`已建立新名單組別：「${groupName}」，現在可匯入名單！`, 'success');
+    }
+
+    // 重新命名目前組別
+    function renameCurrentPickerGroup() {
+      const grp = getCurrentPickerGroupObj();
+      if (!grp) {
+        showToast('主系統共用名冊無法在此改名，請先選擇自訂組別！', 'warn');
+        return;
+      }
+      const newName = document.getElementById('pickerGroupNameInput').value.trim();
+      if (!newName) {
+        showToast('請在輸入框輸入新的組別名稱！', 'warn');
+        return;
+      }
+      grp.name = newName;
+      saveState();
+      showToast(`已將目前組別重新命名為：「${newName}」`, 'success');
+    }
+
+    // 刪除目前組別
+    function deleteCurrentPickerGroup() {
+      const grp = getCurrentPickerGroupObj();
+      if (!grp) return;
+      if (appState.pickerGroups.length <= 1) {
+        showToast('系統至少需保留一個自訂名單組別！您可直接使用「覆蓋此組」更新內容。', 'warn');
+        return;
+      }
+      askConfirm(`確定要刪除名單組別【${grp.name}】（共 ${grp.members.length} 人）嗎？`, () => {
+        appState.pickerGroups = appState.pickerGroups.filter(g => g.id !== grp.id);
+        appState.activePickerGroupId = appState.pickerGroups[0].id;
+        syncCageBallsWithPool();
+        saveState();
+        showToast(`已刪除名單組別：${grp.name}`, 'info');
+      });
+    }
+
+    function setPickerVisualMode(mode) {
+      pickerVisualMode = mode;
+      document.getElementById('pickerStage-cage').classList.toggle('hidden', mode !== 'cage');
+      document.getElementById('pickerStage-cage').classList.toggle('flex', mode === 'cage');
+      document.getElementById('pickerStage-matrix').classList.toggle('hidden', mode !== 'matrix');
+
+      document.getElementById('pickerMode-cage').className = mode === 'cage'
+        ? 'py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-1.5 bg-gradient-to-r from-amber-500 to-rose-500 text-slate-950 shadow transition'
+        : 'py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-1.5 text-slate-400 hover:text-white transition';
+      document.getElementById('pickerMode-matrix').className = mode === 'matrix'
+        ? 'py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-1.5 bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow transition'
+        : 'py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-1.5 text-slate-400 hover:text-white transition';
+
+      renderPickerModule();
+      if (mode === 'cage') startCagePhysicsLoop();
+    }
+
+    function setQuickPickerTopic(topicText, countNum) {
+      document.getElementById('pickerTopicInput').value = topicText;
+      document.getElementById('pickerCountInput').value = countNum;
+      document.getElementById('pickerStageHeadline').textContent = `🎯 本輪點名主題：${topicText}`;
+      showToast(`已切換點名模式：${topicText} (一次抽 ${countNum} 人)`, 'info');
+    }
+
+    // 智慧解析文字行（自動辨識：學號、姓名、組別/系級）
+    function parsePickerInputLines(rawText) {
+      const lines = rawText.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+      const parsed = [];
+      const headerKeywords = ['學號', '姓名', 'name', 'student', 'id', '編號', '系級', '組別', '序號'];
+
+      lines.forEach((line, idx) => {
+        // 若單行沒有逗號但有多個頓號或分號，轉為多筆處理
+        const subRows = (!line.includes(',') && !line.includes('\t') && /[、;；]/.test(line))
+          ? line.split(/[、;；]+/).map(s => s.trim()).filter(Boolean)
+          : [line];
+
+        subRows.forEach((rowStr, subIdx) => {
+          // 檢查是否為表頭列
+          const lowerRow = rowStr.toLowerCase();
+          if (idx === 0 && headerKeywords.some(k => lowerRow.includes(k)) && (lowerRow.includes('姓名') || lowerRow.includes('name'))) {
+            return;
+          }
+
+          let studentId = '';
+          let name = '';
+          let tag = '候選成員';
+
+          // 1. 先檢查是否有逗號或 Tab 分隔 (CSV / Excel 複製貼上)
+          const parts = rowStr.split(/[,\t，]+/).map(s => s.trim()).filter(Boolean);
+          if (parts.length >= 2) {
+            // 判斷第一欄是否像學號 (含英數字且長度 >= 3) 或第二欄像學號
+            const p0IsId = /^[A-Za-z0-9\-_]{3,}$/.test(parts[0]);
+            const p1IsId = /^[A-Za-z0-9\-_]{3,}$/.test(parts[1]);
+            if (p0IsId) {
+              studentId = parts[0];
+              name = parts[1];
+              tag = parts[2] || '候選成員';
+            } else if (p1IsId) {
+              name = parts[0];
+              studentId = parts[1];
+              tag = parts[2] || '候選成員';
+            } else {
+              name = parts[0];
+              tag = parts[1] || '候選成員';
+            }
+          } else {
+            // 2. 單一字串智慧解析，例如：「D112001 王小明 (第一組)」或「B10902015 陳雅婷」或「王小明 (第一組)」
+            let working = rowStr;
+            // 擷取括號內的組別
+            const parenMatch = working.match(/[(\（](.+?)[)\）]/);
+            if (parenMatch) {
+              tag = parenMatch[1].trim();
+              working = working.replace(parenMatch[0], '').trim();
+            }
+            // 以空白切分看是否有學號
+            const spaceTokens = working.split(/\s+/).filter(Boolean);
+            if (spaceTokens.length >= 2) {
+              if (/^[A-Za-z0-9\-_]{3,}$/.test(spaceTokens[0])) {
+                studentId = spaceTokens[0];
+                name = spaceTokens.slice(1).join(' ');
+              } else if (/^[A-Za-z0-9\-_]{3,}$/.test(spaceTokens[1])) {
+                name = spaceTokens[0];
+                studentId = spaceTokens[1];
+                if (spaceTokens[2]) tag = spaceTokens[2];
+              } else {
+                name = spaceTokens[0];
+                tag = spaceTokens.slice(1).join(' ');
+              }
+            } else {
+              // 檢查「D112001-王小明」
+              const dashParts = working.split(/[\-—]+/).map(s => s.trim()).filter(Boolean);
+              if (dashParts.length >= 2 && /^[A-Za-z0-9]{3,}$/.test(dashParts[0])) {
+                studentId = dashParts[0];
+                name = dashParts[1];
+                if (dashParts[2]) tag = dashParts[2];
+              } else if (dashParts.length >= 2) {
+                name = dashParts[0];
+                tag = dashParts[1];
+              } else {
+                name = working;
+              }
+            }
+          }
+
+          if (name) {
+            parsed.push({
+              id: 'pk_' + Date.now() + '_' + idx + '_' + subIdx,
+              studentId: studentId.trim(),
+              name: name.trim(),
+              tag: (tag || '候選成員').trim(),
+              dept: (tag || '候選成員').trim(),
+              bonus: Math.max(1, parseInt(parts[3]) || 1),
+              isWinner: false,
+              isPicked: false
+            });
+          }
+        });
+      });
+
+      return parsed;
+    }
+
+    function appendOrReplaceCurrentGroupMembers(newList, replaceAll = false) {
+      const grp = getCurrentPickerGroupObj();
+      if (!grp) {
+        showToast('請先切換至特定名單組別再匯入！', 'warn');
+        return;
+      }
+      if (replaceAll) {
+        grp.members = newList;
+      } else {
+        grp.members = (grp.members || []).concat(newList);
+      }
+      syncCageBallsWithPool();
+      saveState();
+    }
+
+    function importPickerCustomNames(replaceAll = false) {
+      const raw = document.getElementById('pickerRawNamesInput').value;
+      const list = parsePickerInputLines(raw);
+      if (list.length === 0) {
+        showToast('請先在輸入框貼上人名或學號（每行一人或用逗號分隔）！', 'warn');
+        return;
+      }
+      appendOrReplaceCurrentGroupMembers(list, replaceAll);
+      document.getElementById('pickerRawNamesInput').value = '';
+      const grp = getCurrentPickerGroupObj();
+      showToast(`已成功${replaceAll ? '覆蓋' : '加入'} ${list.length} 位學生至【${grp ? grp.name : ''}】！`, 'success');
+    }
+
+    function setPickerParseStatus(visible, text = '') {
+      const box = document.getElementById('pickerFileParseStatus');
+      const span = document.getElementById('pickerFileParseStatusText');
+      if (!box || !span) return;
+      if (visible) {
+        span.textContent = text;
+        box.classList.remove('hidden');
+      } else {
+        box.classList.add('hidden');
+      }
+    }
+
+    // 支援 CSV / TXT / Excel (.xlsx, .xls) / PDF / 圖檔 (PNG, JPG, WEBP) 全格式上傳解析
+    async function handlePickerMultiFileUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      e.target.value = ''; // 允許重複上傳同檔名
+
+      const ext = file.name.split('.').pop().toLowerCase();
+      try {
+        // 1. CSV 或 TXT 純文字檔
+        if (ext === 'csv' || ext === 'txt') {
+          setPickerParseStatus(true, `正在讀取文字名單 ${file.name}...`);
+          const text = await file.text();
+          const list = parsePickerInputLines(text);
+          setPickerParseStatus(false);
+          if (list.length > 0) {
+            appendOrReplaceCurrentGroupMembers(list, false);
+            showToast(`已從 ${file.name} 成功匯入 ${list.length} 位學生（含學號解析）！`, 'success');
+          } else {
+            showToast('檔案中未偵測到有效名單資料', 'warn');
+          }
+          return;
+        }
+
+        // 2. Excel (.xlsx / .xls) 試算表
+        if (ext === 'xlsx' || ext === 'xls') {
+          if (!window.XLSX) {
+            showToast('Excel 解析元件尚未就緒，請稍候再試', 'error');
+            return;
+          }
+          setPickerParseStatus(true, `正在解析 Excel 點名表 ${file.name}...`);
+          const data = await file.arrayBuffer();
+          const workbook = XLSX.read(data, { type: 'array' });
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+          const rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: '' });
+
+          const extracted = [];
+          let idCol = -1, nameCol = -1, tagCol = -1;
+
+          rows.forEach((row, rIdx) => {
+            const cells = row.map(c => String(c || '').trim());
+            if (cells.every(c => !c)) return;
+
+            // 自動偵測標題列欄位索引
+            if (rIdx === 0) {
+              cells.forEach((cellText, cIdx) => {
+                const low = cellText.toLowerCase();
+                if (low.includes('學號') || low.includes('student') || low === 'id' || low.includes('編號')) idCol = cIdx;
+                else if (low.includes('姓名') || low.includes('name') || low.includes('學生')) nameCol = cIdx;
+                else if (low.includes('組別') || low.includes('系') || low.includes('班') || low.includes('部門')) tagCol = cIdx;
+              });
+              if (idCol !== -1 || nameCol !== -1) return; // 跳過表頭列
+            }
+
+            let studentId = '';
+            let name = '';
+            let tag = '候選成員';
+
+            if (nameCol !== -1) {
+              name = cells[nameCol] || '';
+              if (idCol !== -1) studentId = cells[idCol] || '';
+              if (tagCol !== -1 && cells[tagCol]) tag = cells[tagCol];
+            } else {
+              // 若無明確表頭，使用智慧單行解析
+              const nonEmpty = cells.filter(Boolean);
+              const parsedRow = parsePickerInputLines(nonEmpty.join(','));
+              if (parsedRow.length > 0) {
+                studentId = parsedRow[0].studentId;
+                name = parsedRow[0].name;
+                tag = parsedRow[0].tag;
+              }
+            }
+
+            if (name) {
+              extracted.push({
+                id: 'pk_xls_' + Date.now() + '_' + rIdx,
+                studentId,
+                name,
+                tag,
+                isPicked: false
+              });
+            }
+          });
+
+          setPickerParseStatus(false);
+          if (extracted.length > 0) {
+            appendOrReplaceCurrentGroupMembers(extracted, false);
+            showToast(`已從 Excel「${file.name}」成功匯入 ${extracted.length} 位學生！`, 'success');
+          } else {
+            showToast('Excel 中未偵測到有效學生姓名，請確認欄位內容', 'warn');
+          }
+          return;
+        }
+
+        // 3. PDF 點名冊文件 (.pdf)
+        if (ext === 'pdf') {
+          setPickerParseStatus(true, `正在擷取 PDF 點名表「${file.name}」內容...`);
+          let pdfText = '';
+          if (window.pdfjsLib) {
+            try {
+              const arrayBuf = await file.arrayBuffer();
+              const pdfDoc = await window.pdfjsLib.getDocument({ data: arrayBuf }).promise;
+              for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+                const page = await pdfDoc.getPage(pageNum);
+                const textContent = await page.getTextContent();
+                const pageLines = textContent.items.map(item => item.str).join(' ');
+                pdfText += pageLines + '\n';
+              }
+            } catch (pdfErr) {
+              console.warn('PDF.js local parse fallback to Gemini:', pdfErr);
+            }
+          }
+
+          // 若 PDF 含有豐富文字，請 Gemini AI 或結構化解析器精準抽取學號與姓名；若為掃描檔則直接傳送 inlineData 給 Gemini
+          setPickerParseStatus(true, `正在由 Gemini AI 智慧辨識 PDF 內之學號與學生名單...`);
+          const aiList = await extractRosterViaGeminiAI(file, pdfText);
+          setPickerParseStatus(false);
+          if (aiList && aiList.length > 0) {
+            appendOrReplaceCurrentGroupMembers(aiList, false);
+            showToast(`已從 PDF「${file.name}」智慧辨識匯入 ${aiList.length} 位學生！`, 'success');
+          } else if (pdfText.trim()) {
+            const fallbackList = parsePickerInputLines(pdfText);
+            if (fallbackList.length > 0) {
+              appendOrReplaceCurrentGroupMembers(fallbackList, false);
+              showToast(`已從 PDF 解析匯入 ${fallbackList.length} 筆名單！`, 'success');
+            } else {
+              showToast('無法從此 PDF 辨識出名單，建議確認檔案清晰度或改用 Excel/CSV。', 'warn');
+            }
+          } else {
+            showToast('無法讀取此 PDF，請確認檔案未加密。', 'error');
+          }
+          return;
+        }
+
+        // 4. 圖檔點名表 / 螢幕截圖 / 照片 (PNG, JPG, WEBP 等) -> 透過 Gemini 3 Flash Vision OCR 擷取學號與姓名
+        if (file.type.startsWith('image/') || ['png', 'jpg', 'jpeg', 'webp', 'heic'].includes(ext)) {
+          setPickerParseStatus(true, `正在透過 Gemini Vision AI 視覺辨識圖片「${file.name}」中的學號與姓名...`);
+          const aiList = await extractRosterViaGeminiAI(file, '');
+          setPickerParseStatus(false);
+          if (aiList && aiList.length > 0) {
+            appendOrReplaceCurrentGroupMembers(aiList, false);
+            showToast(`AI 視覺辨識成功！已從圖片匯入 ${aiList.length} 位學生（含學號）！`, 'success');
+          } else {
+            showToast('圖片中未能辨識出清晰的學號與姓名，請確認圖片文字清晰或於設定填入 Gemini API Key。', 'warn');
+          }
+          return;
+        }
+
+        showToast('不支援的檔案格式，請上傳 CSV、Excel、PDF 或圖片檔！', 'warn');
+      } catch (err) {
+        console.error('File import error:', err);
+        setPickerParseStatus(false);
+        showToast('解析檔案時發生例外錯誤，請重試或直接貼上文字名單。', 'error');
+      }
+    }
+
+    // 呼叫 Gemini 3 Flash 視覺與結構化擷取學號、姓名、組別
+    async function extractRosterViaGeminiAI(file, extractedText = '') {
+      const base64Data = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const res = String(reader.result || '');
+          resolve(res.includes(',') ? res.split(',')[1] : '');
+        };
+        reader.onerror = () => resolve('');
+        reader.readAsDataURL(file);
+      });
+
+      const rosterSchema = {
+        type: "ARRAY",
+        items: {
+          type: "OBJECT",
+          properties: {
+            studentId: { type: "STRING" },
+            name: { type: "STRING" },
+            tag: { type: "STRING" }
+          },
+          propertyOrdering: ["studentId", "name", "tag"]
+        }
+      };
+
+      const prompt = `你現在是精準的課堂點名冊 OCR 與資料擷取助理。請從提供的內容中擷取出所有學生或參加者名單，並嚴格回傳 JSON 陣列。
+      每個物件包含：
+      - "studentId": 學號或員工編號（若無學號請填 "" 空字串）
+      - "name": 學生或人員真實姓名（必填）
+      - "tag": 系級、班級或組別標籤（若無則填 "候選成員"）
+      ${extractedText ? `\n以下是從文件初步提取的文字供參考：\n${extractedText.slice(0, 12000)}` : ''}`;
+
+      const inlineMedia = (base64Data && (file.type.startsWith('image/') || file.type === 'application/pdf'))
+        ? { mimeType: file.type || 'image/png', data: base64Data }
+        : null;
+
+      const res = await callGeminiAPI(prompt, true, inlineMedia, rosterSchema);
+      if (!res || !res.text) return null;
+      try {
+        const arr = JSON.parse(res.text);
+        if (Array.isArray(arr)) {
+          return arr
+            .filter(item => item && item.name && String(item.name).trim())
+            .map((item, idx) => ({
+              id: 'pk_ai_' + Date.now() + '_' + idx,
+              studentId: String(item.studentId || '').trim(),
+              name: String(item.name || '').trim(),
+              tag: String(item.tag || '候選成員').trim() || '候選成員',
+              isPicked: false
+            }));
+        }
+      } catch (e) {
+        console.warn('Gemini roster JSON parse error:', e);
+      }
+      return null;
+    }
+
+    function toggleSingleCandidatePicked(personId) {
+      const pool = getActivePickerPool();
+      const target = pool.find(p => p.id === personId);
+      if (!target) return;
+      markPickerPersonStatus(personId, !target.isPicked);
+      syncCageBallsWithPool();
+      saveState();
+    }
+
+    // 單筆新增或修改目前組別內的學生（支援學號、姓名、組別）
+    function saveSinglePickerMember() {
+      const grp = getCurrentPickerGroupObj();
+      if (!grp) {
+        showToast('請先選擇自訂班級組別！', 'warn');
+        return;
+      }
+      const editingId = document.getElementById('editingPickerMemberId').value;
+      const studentId = document.getElementById('pkStudentIdInput').value.trim();
+      const name = document.getElementById('pkStudentNameInput').value.trim();
+      const tag = document.getElementById('pkStudentTagInput').value.trim() || '候選成員';
+
+      if (!name) {
+        showToast('請輸入學生或成員姓名！', 'warn');
+        return;
+      }
+
+      grp.members = grp.members || [];
+      if (editingId) {
+        const target = grp.members.find(m => m.id === editingId);
+        if (target) {
+          target.studentId = studentId;
+          target.name = name;
+          target.tag = tag;
+        }
+        showToast(`已修改學生資料：${studentId ? studentId + ' ' : ''}${name}`, 'success');
+      } else {
+        grp.members.push({
+          id: 'pk_single_' + Date.now(),
+          studentId,
+          name,
+          tag,
+          isPicked: false
+        });
+        showToast(`已新增學生：${studentId ? studentId + ' ' : ''}${name} 至【${grp.name}】`, 'success');
+      }
+
+      cancelEditPickerMember();
+      syncCageBallsWithPool();
+      saveState();
+    }
+
+    function startEditPickerMember(personId, ev) {
+      if (ev) ev.stopPropagation();
+      const grp = getCurrentPickerGroupObj();
+      if (!grp) return;
+      const target = (grp.members || []).find(m => m.id === personId);
+      if (!target) return;
+
+      document.getElementById('editingPickerMemberId').value = target.id;
+      document.getElementById('pkStudentIdInput').value = target.studentId || '';
+      document.getElementById('pkStudentNameInput').value = target.name || '';
+      document.getElementById('pkStudentTagInput').value = target.tag || '';
+      document.getElementById('pickerSingleFormTitle').textContent = `✏️ 正在修改：${target.name}`;
+      document.getElementById('btnSaveSinglePickerMember').textContent = '儲存學生修改';
+      document.getElementById('btnCancelPickerMemberEdit').classList.remove('hidden');
+    }
+
+    function cancelEditPickerMember() {
+      const idEl = document.getElementById('editingPickerMemberId');
+      if (!idEl) return;
+      idEl.value = '';
+      document.getElementById('pkStudentIdInput').value = '';
+      document.getElementById('pkStudentNameInput').value = '';
+      document.getElementById('pkStudentTagInput').value = '';
+      document.getElementById('pickerSingleFormTitle').textContent = '➕ 單筆新增 / 修改學生 (含學號)';
+      document.getElementById('btnSaveSinglePickerMember').textContent = '儲存單筆學生至目前組別';
+      document.getElementById('btnCancelPickerMemberEdit').classList.add('hidden');
+    }
+
+    function removeSingleCandidateFromPickerGroup(personId, ev) {
+      if (ev) ev.stopPropagation();
+      const grp = getCurrentPickerGroupObj();
+      if (!grp) return;
+      if (document.getElementById('editingPickerMemberId')?.value === personId) {
+        cancelEditPickerMember();
+      }
+      grp.members = (grp.members || []).filter(m => m.id !== personId);
+      syncCageBallsWithPool();
+      saveState();
+      showToast('已從目前組別移除該名成員', 'info');
+    }
+
+    function resetPickerPickedStatus() {
+      if (appState.activePickerGroupId === '__SHARED_MAIN__') {
+        appState.pickerGroups.forEach(g => (g.members || []).forEach(u => u.isPicked = false));
+      } else {
+        const grp = getCurrentPickerGroupObj();
+        if (grp && Array.isArray(grp.members)) {
+          grp.members.forEach(u => u.isPicked = false);
+        }
+      }
+      syncCageBallsWithPool();
+      saveState();
+      showToast('已將目前組別所有人名彩球重新放回搖珠機候選池！', 'success');
+    }
+
+    function clearPickerHistory() {
+      appState.pickerHistory = [];
+      saveState();
+      showToast('已清空點名抽人歷史紀錄', 'info');
+    }
+
+    // 初始化與同步 3D 氣動搖珠機內的彩球物理狀態
+    function syncCageBallsWithPool() {
+      const candidates = getEligiblePickerCandidates();
+      const canvas = document.getElementById('cageCanvas');
+      const cx = canvas ? canvas.width / 2 : 170;
+      const cy = canvas ? canvas.height / 2 : 170;
+      const maxBalls = Math.min(candidates.length, 28);
+      const radius = maxBalls > 16 ? 21 : 25;
+
+      cageBalls = candidates.slice(0, maxBalls).map((person, i) => {
+        const angle = (i / Math.max(1, maxBalls)) * Math.PI * 2;
+        const dist = 30 + (i % 3) * 32;
+        const palette = BALL_PALETTE[i % BALL_PALETTE.length];
+        return {
+          id: person.id,
+          studentId: person.studentId || '',
+          name: person.name,
+          tag: person.tag,
+          x: cx + Math.cos(angle) * dist,
+          y: cy + Math.sin(angle) * dist,
+          vx: (Math.random() - 0.5) * 3.2,
+          vy: (Math.random() - 0.5) * 3.2,
+          r: radius,
+          color: palette.bg,
+          border: palette.border,
+          textColor: palette.text
+        };
+      });
+    }
+
+    function startCagePhysicsLoop() {
+      if (cageAnimId) cancelAnimationFrame(cageAnimId);
+      const canvas = document.getElementById('cageCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const cx = canvas.width / 2;
+      const cy = canvas.height / 2;
+      const cageRadius = cx - 10;
+
+      function step() {
+        const viewEl = document.getElementById('view-picker');
+        if (!viewEl || viewEl.classList.contains('hidden') || pickerVisualMode !== 'cage') {
+          cageAnimId = null;
+          return;
+        }
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 繪製球艙背景網格與氣流光圈
+        const grad = ctx.createRadialGradient(cx, cy, 20, cx, cy, cageRadius);
+        grad.addColorStop(0, 'rgba(30, 41, 59, 0.35)');
+        grad.addColorStop(1, 'rgba(9, 13, 22, 0.92)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(cx, cy, cageRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (cageBalls.length === 0) {
+          ctx.fillStyle = '#94a3b8';
+          ctx.font = 'bold 15px "Noto Sans TC"';
+          ctx.textAlign = 'center';
+          ctx.fillText('搖珠池目前無待抽人名', cx, cy - 8);
+          ctx.font = '12px "Noto Sans TC"';
+          ctx.fillText('請從左側新增名單或點擊「全員歸位重抽」', cx, cy + 16);
+        } else {
+          // 更新每顆彩球的位置與圓形艙壁反彈
+          for (let i = 0; i < cageBalls.length; i++) {
+            const b = cageBalls[i];
+            if (cageTurbulence > 1.5) {
+              // 強力噴氣翻滾模式
+              b.vx += (Math.random() - 0.5) * 1.9 * cageTurbulence;
+              b.vy += (Math.random() - 0.52) * 1.9 * cageTurbulence;
+              const maxSpd = 11;
+              const spd = Math.hypot(b.vx, b.vy);
+              if (spd > maxSpd) {
+                b.vx = (b.vx / spd) * maxSpd;
+                b.vy = (b.vy / spd) * maxSpd;
+              }
+            } else {
+              // 待機微幅氣動漂浮
+              b.vy += 0.08; // 輕微重力
+              if (b.y > cy + cageRadius * 0.55) {
+                b.vy -= 0.35; // 底部微風托起
+                b.vx += (Math.random() - 0.5) * 0.4;
+              }
+              b.vx *= 0.99;
+              b.vy *= 0.99;
+            }
+
+            b.x += b.vx;
+            b.y += b.vy;
+
+            // 圓形球艙邊界碰撞反彈
+            const dx = b.x - cx;
+            const dy = b.y - cy;
+            const dist = Math.hypot(dx, dy);
+            const maxDist = cageRadius - b.r - 2;
+            if (dist > maxDist && dist > 0) {
+              const nx = dx / dist;
+              const ny = dy / dist;
+              b.x = cx + nx * maxDist;
+              b.y = cy + ny * maxDist;
+              const dot = b.vx * nx + b.vy * ny;
+              b.vx = (b.vx - 2 * dot * nx) * 0.88;
+              b.vy = (b.vy - 2 * dot * ny) * 0.88;
+            }
+
+            // 彩球彼此簡單彈性推擠
+            for (let j = i + 1; j < cageBalls.length; j++) {
+              const b2 = cageBalls[j];
+              const cdx = b2.x - b.x;
+              const cdy = b2.y - b.y;
+              const cdist = Math.hypot(cdx, cdy);
+              const minDist = b.r + b2.r + 2;
+              if (cdist > 0 && cdist < minDist) {
+                const overlap = (minDist - cdist) * 0.5;
+                const ux = cdx / cdist;
+                const uy = cdy / cdist;
+                b.x -= ux * overlap;
+                b.y -= uy * overlap;
+                b2.x += ux * overlap;
+                b2.y += uy * overlap;
+              }
+            }
+
+            // 繪製立體彩球
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+            ctx.fillStyle = b.color;
+            ctx.fill();
+            ctx.lineWidth = 2.5;
+            ctx.strokeStyle = b.border;
+            ctx.stroke();
+
+            // 彩球高光點
+            ctx.beginPath();
+            ctx.arc(b.x - b.r * 0.32, b.y - b.r * 0.32, b.r * 0.25, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255,255,255,0.35)';
+            ctx.fill();
+
+            // 彩球上的人名與學號末碼
+            ctx.fillStyle = b.textColor;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            const shortName = b.name.length > 4 ? b.name.slice(0, 4) : b.name;
+            if (b.studentId) {
+              ctx.font = `bold ${b.r > 22 ? 11 : 9.5}px "Noto Sans TC"`;
+              ctx.fillText(shortName, b.x, b.y - 4);
+              ctx.font = `600 8px "Inter", monospace`;
+              const shortId = b.studentId.length > 6 ? b.studentId.slice(-5) : b.studentId;
+              ctx.fillText(shortId, b.x, b.y + 8);
+            } else {
+              ctx.font = `bold ${b.r > 22 ? 12 : 10}px "Noto Sans TC"`;
+              ctx.fillText(shortName, b.x, b.y + 1);
+            }
+            ctx.restore();
+          }
+        }
+
+        cageAnimId = requestAnimationFrame(step);
+      }
+
+      cageAnimId = requestAnimationFrame(step);
+    }
+
+    async function triggerNamePicker() {
+      if (isPickerRunning) return;
+      const candidates = getEligiblePickerCandidates();
+      if (candidates.length === 0) {
+        showToast('目前組別沒有待抽的學生！請先匯入名單或點擊「全員歸位重抽」。', 'warn');
+        return;
+      }
+
+      const grp = getCurrentPickerGroupObj();
+      const groupTitle = grp ? grp.name : '主系統名冊';
+      const topic = document.getElementById('pickerTopicInput').value.trim() || '現場隨機點名';
+      document.getElementById('pickerStageHeadline').textContent = `🎯 【${groupTitle}】${topic}`;
+
+      const wantCount = Math.max(1, Math.min(12, parseInt(document.getElementById('pickerCountInput').value) || 1));
+      const actualCount = Math.min(wantCount, candidates.length);
+
+      isPickerRunning = true;
+      const btn = document.getElementById('btnStartPicker');
+      btn.disabled = true;
+      btn.innerHTML = `<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> 搖珠洗牌鎖定中...`;
+      lucide.createIcons();
+
+      // 隨機洗牌抽出 actualCount 位得主
+      const poolCopy = [...candidates];
+      const chosenList = [];
+      for (let i = 0; i < actualCount; i++) {
+        const randIdx = Math.floor(Math.random() * poolCopy.length);
+        chosenList.push(poolCopy.splice(randIdx, 1)[0]);
+      }
+
+      const showcase = document.getElementById('pickerWinnersShowcase');
+      showcase.innerHTML = `<span class="text-xs text-amber-300 font-bold animate-pulse">🌪️ 氣動噴射洗牌中，準備彈出幸運彩球...</span>`;
+
+      if (pickerVisualMode === 'cage') {
+        cageTurbulence = 6.5;
+        for (let t = 0; t < 24; t++) {
+          playTone(320 + (t % 6) * 65, 0.045, 'triangle');
+          await new Promise(r => setTimeout(r, 85));
+        }
+        cageTurbulence = 1;
+      } else {
+        const cards = Array.from(document.querySelectorAll('.picker-matrix-card'));
+        for (let t = 0; t < 26; t++) {
+          cards.forEach(c => c.classList.remove('ring-2', 'ring-amber-400', 'bg-amber-500/30', 'scale-105'));
+          if (cards.length > 0) {
+            const rndCard = cards[Math.floor(Math.random() * cards.length)];
+            rndCard.classList.add('ring-2', 'ring-amber-400', 'bg-amber-500/30', 'scale-105');
+          }
+          playTone(420 + (t * 15), 0.04, 'sine');
+          await new Promise(r => setTimeout(r, 75));
+        }
+        cards.forEach(c => c.classList.remove('ring-2', 'ring-amber-400', 'bg-amber-500/30', 'scale-105'));
+      }
+
+      // 依序彈出每顆中選彩球（完整顯示學號、姓名、組別）
+      showcase.innerHTML = '';
+      for (let i = 0; i < chosenList.length; i++) {
+        const winner = chosenList[i];
+        markPickerPersonStatus(winner.id, true);
+        playTone(587.33 + i * 110, 0.18, 'triangle');
+
+        const palette = BALL_PALETTE[i % BALL_PALETTE.length];
+        const ballEl = document.createElement('div');
+        ballEl.className = 'animate-capsule flex items-center gap-3 px-4 py-2.5 rounded-2xl border-2 shadow-xl';
+        ballEl.style.backgroundColor = 'rgba(15, 23, 42, 0.95)';
+        ballEl.style.borderColor = palette.bg;
+        ballEl.innerHTML = `
+          <div class="w-9 h-9 rounded-full flex items-center justify-center font-black text-xs shadow-inner shrink-0" style="background:${palette.bg}; color:${palette.text}; border:2px solid ${palette.border}">
+            #${i + 1}
+          </div>
+          <div class="text-left">
+            ${winner.studentId ? `<p class="font-mono text-[11px] font-bold text-indigo-300 leading-none mb-0.5">${winner.studentId}</p>` : ''}
+            <p class="font-black text-base text-white leading-tight">${winner.name}</p>
+            <p class="text-[11px] text-amber-300 font-bold">${winner.tag || '中選者'}</p>
+          </div>
+        `;
+        showcase.appendChild(ballEl);
+        await new Promise(r => setTimeout(r, 260));
+      }
+
+      playWinFanfare();
+      confetti({ particleCount: 90, spread: 70, origin: { y: 0.65 } });
+
+      const namesJoined = chosenList.map(c => c.studentId ? `${c.studentId} ${c.name}` : c.name).join('、');
+      const nowStr = new Date().toLocaleString('zh-TW', { hour12: false });
+      const defaultComment = `🎉 恭喜【${namesJoined}】被抽中「${topic}」！請掌聲歡迎上台！`;
+      document.getElementById('pickerAiCommentTag').textContent = defaultComment;
+
+      const historyEntry = {
+        id: 'pkh_' + Date.now(),
+        timestamp: nowStr,
+        groupName: groupTitle,
+        topic,
+        winners: chosenList.map(c => ({ id: c.id, studentId: c.studentId || '', name: c.name, tag: c.tag })),
+        aiComment: defaultComment
+      };
+      if (!appState.pickerHistory) appState.pickerHistory = [];
+      appState.pickerHistory.unshift(historyEntry);
+
+      syncCageBallsWithPool();
+      saveState();
+
+      btn.disabled = false;
+      btn.innerHTML = `<i data-lucide="sparkles" class="w-5 h-5 fill-slate-950"></i> 啟動搖珠抽人！`;
+      isPickerRunning = false;
+      lucide.createIcons();
+
+      // 若開啟 AI 導師點評與語音播報
+      if (document.getElementById('chkPickerAiVoice')?.checked) {
+        const aiPrompt = `你現在是風趣幽默的企業培訓導師與大學數位行銷名師 TONY 老師的 AI 助教。剛剛在「${groupTitle}」透過搖珠機於「${topic}」環節抽中了【${namesJoined}】（共 ${chosenList.length} 人）。請用繁體中文、40字以內，給出一句充滿活力、幽默鼓勵他們上台簡報表現或領獎的點名賀詞！`;
+        const aiRes = await callGeminiAPI(aiPrompt, false);
+        if (aiRes && aiRes.text) {
+          historyEntry.aiComment = aiRes.text.trim();
+          document.getElementById('pickerAiCommentTag').textContent = historyEntry.aiComment;
+          saveState();
+        }
+        if (soundEnabled && 'speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+          const utter = new SpeechSynthesisUtterance(historyEntry.aiComment);
+          utter.lang = 'zh-TW';
+          utter.rate = 1.08;
+          window.speechSynthesis.speak(utter);
+        }
+      }
+    }
+
+    function renderPickerModule() {
+      ensurePickerGroupsIntegrity();
+      const groupSelect = document.getElementById('pickerGroupSelect');
+      if (groupSelect) {
+        const optionsHtml = appState.pickerGroups.map(g => {
+          const total = (g.members || []).length;
+          return `<option value="${g.id}" ${g.id === appState.activePickerGroupId ? 'selected' : ''}>${g.name} (${total} 人)</option>`;
+        }).join('') + `<option value="__SHARED_MAIN__" ${appState.activePickerGroupId === '__SHARED_MAIN__' ? 'selected' : ''}>🌐 全部群組聯合總名冊 (${appState.participants.length} 人)</option>`;
+        groupSelect.innerHTML = optionsHtml;
+      }
+
+      const grp = getCurrentPickerGroupObj();
+      const groupTitleEl = document.getElementById('pickerCurrentGroupTitle');
+      if (groupTitleEl) {
+        groupTitleEl.textContent = grp ? grp.name : '全部群組聯合名冊';
+      }
+      const nameInp = document.getElementById('pickerGroupNameInput');
+      if (nameInp && grp && document.activeElement !== nameInp) {
+        nameInp.value = grp.name;
+      }
+
+      const pool = getActivePickerPool();
+      const eligible = getEligiblePickerCandidates();
+
+      const badge = document.getElementById('pickerPoolBadge');
+      if (badge) badge.textContent = `待抽: ${eligible.length} / ${pool.length} 人`;
+      const totalEl = document.getElementById('pickerTotalPoolCount');
+      if (totalEl) totalEl.textContent = pool.length;
+
+      // 渲染左側人名與學號膠囊池
+      const chipsBox = document.getElementById('pickerPoolChips');
+      if (chipsBox) {
+        if (pool.length === 0) {
+          chipsBox.innerHTML = `<span class="text-xs text-slate-500 py-2">此組別名單為空，請上傳 CSV/Excel/PDF/圖檔或於上方新增學生。</span>`;
+        } else {
+          const isShared = appState.activePickerGroupId === '__SHARED_MAIN__';
+          chipsBox.innerHTML = pool.map(p => `
+            <div onclick="toggleSingleCandidatePicked('${p.id}')" class="cursor-pointer px-2.5 py-1 rounded-xl text-xs font-bold border transition inline-flex items-center gap-1.5 ${p.isPicked ? 'bg-slate-900/50 border-slate-800 text-slate-500 line-through' : 'bg-indigo-950/70 border-indigo-500/40 text-indigo-200 hover:bg-indigo-900'}" title="點擊切換已中選/待抽狀態">
+              ${p.studentId ? `<span class="font-mono text-[10px] px-1.5 py-0.2 rounded bg-slate-900 text-amber-300 border border-slate-700">${p.studentId}</span>` : ''}
+              <span>${p.name}</span>
+              <span class="text-[10px] opacity-70">(${p.tag})</span>
+              ${!isShared ? `
+                <button type="button" onclick="startEditPickerMember('${p.id}', event)" class="ml-0.5 text-amber-300 hover:text-amber-200 text-[10px]" title="修改學號與姓名">✏️</button>
+                <button type="button" onclick="removeSingleCandidateFromPickerGroup('${p.id}', event)" class="text-slate-400 hover:text-rose-400" title="從此組移除">×</button>
+              ` : ''}
+            </div>
+          `).join('');
+        }
+      }
+
+      // 渲染量子雷達矩陣卡片 (含學號顯示)
+      const matrixGrid = document.getElementById('pickerMatrixGrid');
+      if (matrixGrid) {
+        if (eligible.length === 0) {
+          matrixGrid.innerHTML = `<div class="col-span-full py-12 text-center text-xs text-slate-400">目前組別所有候選成員皆已中選上台！點擊左側「全員歸位重抽」即可開啟新一輪。</div>`;
+        } else {
+          matrixGrid.innerHTML = eligible.map((p, idx) => `
+            <div data-id="${p.id}" class="picker-matrix-card bg-slate-900/90 border border-slate-700/80 rounded-xl p-3 text-center transition duration-150 flex flex-col items-center justify-center">
+              <span class="text-[10px] font-mono text-indigo-400">${p.studentId ? p.studentId : `#${idx + 1}`} · ${p.tag}</span>
+              <span class="font-black text-sm text-white mt-0.5 truncate max-w-full">${p.name}</span>
+            </div>
+          `).join('');
+        }
+      }
+
+      // 渲染歷次抽人紀錄
+      const histBox = document.getElementById('pickerHistoryContainer');
+      if (histBox) {
+        const list = appState.pickerHistory || [];
+        if (list.length === 0) {
+          histBox.innerHTML = `<p class="text-xs text-slate-500 py-4 text-center">尚無抽人點名紀錄</p>`;
+        } else {
+          histBox.innerHTML = list.map(item => `
+            <div class="bg-slate-900/85 border border-slate-800 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div class="space-y-1">
+                <div class="flex flex-wrap items-center gap-1.5">
+                  ${item.groupName ? `<span class="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-bold text-[11px]">${item.groupName}</span>` : ''}
+                  <span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold">${item.topic}</span>
+                  <span class="text-slate-400 font-mono text-[11px]">${item.timestamp}</span>
+                </div>
+                <p class="text-slate-300 text-[11px] italic">${item.aiComment || ''}</p>
+              </div>
+              <div class="flex flex-wrap gap-1.5">
+                ${(item.winners || []).map(w => `
+                  <span class="px-2.5 py-1 rounded-lg bg-indigo-600/30 border border-indigo-400/40 text-white font-black inline-flex items-center gap-1">
+                    🎯 ${w.studentId ? `<code class="text-[10px] text-amber-300 font-mono">${w.studentId}</code>` : ''}
+                    <span>${w.name}</span>
+                    <span class="text-[10px] text-indigo-200 font-normal">(${w.tag})</span>
+                  </span>
+                `).join('')}
+              </div>
+            </div>
+          `).join('');
+        }
+      }
+    }
+
+    function exportPickerHistoryCSV() {
+      const list = appState.pickerHistory || [];
+      if (list.length === 0) {
+        showToast('目前尚無點名紀錄可供匯出！', 'warn');
+        return;
+      }
+      let csv = '\uFEFF時間,班級/名單組別,點名主題/獎項,中選人數,中選名單(含學號),AI導師點評\n';
+      list.forEach(item => {
+        const names = (item.winners || []).map(w => `${w.studentId ? w.studentId + ' ' : ''}${w.name}(${w.tag})`).join(' / ');
+        csv += `"${item.timestamp}","${item.groupName || '預設組別'}","${item.topic}",${(item.winners || []).length},"${names}","${(item.aiMessage || item.aiComment || '').replace(/"/g, '""')}"\n`;
+      });
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `OmniDraw_搖珠抽人點名紀錄_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      showToast('已匯出含學號與班級組別之點名結果 CSV！', 'success');
     }
 
     // ==================== 10. UI 渲染與分頁控制 ====================
     function switchTab(tab) {
-      ['stage', 'prizes', 'participants', 'redeem'].forEach(t => {
+      ['stage', 'picker', 'prizes', 'participants', 'redeem'].forEach(t => {
         const viewEl = document.getElementById(`view-${t}`);
         if (viewEl) viewEl.classList.toggle('hidden', t !== tab);
         const btn = document.getElementById(`tab-${t}`);
@@ -2795,6 +4667,11 @@
         }
       });
       if (tab === 'stage') drawWheel();
+      if (tab === 'picker') {
+        syncCageBallsWithPool();
+        renderPickerModule();
+        if (pickerVisualMode === 'cage') startCagePhysicsLoop();
+      }
       lucide.createIcons();
     }
 
@@ -2819,16 +4696,51 @@
     }
 
     function updateStageMetrics() {
+      ensurePickerGroupsIntegrity();
       const eligible = getEligibleParticipants();
+      let totalInScope = appState.participants.length;
+      if (stageTargetGroupId && stageTargetGroupId !== 'ALL') {
+        const grp = appState.pickerGroups.find(g => g.id === stageTargetGroupId);
+        totalInScope = grp ? (grp.members || []).length : 0;
+      }
       const badge = document.getElementById('poolStatusBadge');
       if (badge) {
-        badge.textContent = `待抽人數: ${eligible.length} / ${appState.participants.length}`;
+        badge.textContent = `待抽人數: ${eligible.length} / ${totalInScope}`;
       }
     }
 
     function renderAll() {
+      ensurePickerGroupsIntegrity();
       updateStageMetrics();
       drawWheel();
+      renderPickerModule();
+
+      // 0. 同步渲染「抽獎主舞台」與「名單管理」的群組選擇器
+      const stageGrpSel = document.getElementById('stageGroupSelect');
+      if (stageGrpSel) {
+        stageGrpSel.innerHTML = `<option value="ALL" ${stageTargetGroupId === 'ALL' ? 'selected' : ''}>🌐 全部群組聯合抽獎 (${appState.participants.length} 人)</option>` +
+          appState.pickerGroups.map(g => `<option value="${g.id}" ${stageTargetGroupId === g.id ? 'selected' : ''}>${g.name} (${(g.members || []).length} 人)</option>`).join('');
+      }
+
+      const mgrGrpSel = document.getElementById('managerGroupSelect');
+      if (mgrGrpSel) {
+        mgrGrpSel.innerHTML = appState.pickerGroups.map(g => `<option value="${g.id}" ${managerViewGroupId === g.id ? 'selected' : ''}>${g.name} (${(g.members || []).length} 人)</option>`).join('') +
+          `<option value="ALL" ${managerViewGroupId === 'ALL' ? 'selected' : ''}>🌐 檢視全部群組總覽 (共 ${appState.participants.length} 人)</option>`;
+      }
+
+      const formGrpSel = document.getElementById('pTargetGroupSelect');
+      if (formGrpSel) {
+        const currentEditingId = document.getElementById('editingParticipantId')?.value;
+        const defaultTargetGrpId = managerViewGroupId !== 'ALL' ? managerViewGroupId : appState.activePickerGroupId;
+        const selectedVal = currentEditingId ? (document.getElementById('editingParticipantOriginalGroupId')?.value || defaultTargetGrpId) : defaultTargetGrpId;
+        formGrpSel.innerHTML = appState.pickerGroups.map(g => `<option value="${g.id}" ${g.id === selectedVal ? 'selected' : ''}>${g.name}</option>`).join('');
+      }
+
+      const mgrGroupNameInp = document.getElementById('managerGroupNameInput');
+      if (mgrGroupNameInp && document.activeElement !== mgrGroupNameInp) {
+        const activeGrp = appState.pickerGroups.find(g => g.id === (managerViewGroupId !== 'ALL' ? managerViewGroupId : appState.activePickerGroupId));
+        if (activeGrp) mgrGroupNameInp.value = activeGrp.name;
+      }
 
       // 1. 指定獎項下拉選單
       const targetSelect = document.getElementById('targetPrizeSelect');
@@ -2911,7 +4823,9 @@
 
       const currentEditingPrizeId = document.getElementById('editingPrizeId')?.value || '';
       document.getElementById('prizeTableBody').innerHTML = appState.prizes.map(p => {
-        const prob = (p.remainQty > 0 && activeProbMap[p.id]) ? activeProbMap[p.id] : '0.0% (已抽完)';
+        const prob = (p.remainQty > 0 && activeProbMap[p.id])
+          ? activeProbMap[p.id]
+          : '0.0% (已抽完)';
         const isEditingThis = currentEditingPrizeId === p.id;
         return `
           <tr class="${isEditingThis ? 'bg-amber-500/10' : 'hover:bg-slate-900/50'} transition">
@@ -2927,12 +4841,12 @@
               <span class="px-2.5 py-1 rounded-full text-xs font-bold font-mono ${p.remainQty > 0 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-400'}">${p.remainQty}</span>
             </td>
             <td class="py-3 px-2 text-center">
-              <div class="inline-flex items-center bg-slate-900 border border-slate-700 rounded-lg px-2 py-1">
-                <input type="number" min="0" max="100" step="1" value="${p.weight}" onchange="updateSinglePrizeWeightInline('${p.id}', this.value)" class="w-12 bg-transparent text-center font-mono font-bold text-indigo-300 focus:outline-none text-xs" title="直接修改比例數值">
-                <span class="text-xs text-slate-400 font-mono">%</span>
+              <div class="inline-flex items-center gap-1">
+                <input type="number" min="0" max="100" step="1" value="${p.weight}" onchange="updateSinglePrizeWeightInline('${p.id}', this.value)" class="w-16 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-center font-mono text-xs font-bold text-indigo-300 focus:outline-none focus:border-amber-400">
+                <span class="text-xs text-slate-400">%</span>
               </div>
             </td>
-            <td class="py-3 px-2 text-center font-mono font-bold ${p.remainQty > 0 ? 'text-amber-300' : 'text-slate-500'}">${prob}</td>
+            <td class="py-3 px-2 text-center font-mono text-amber-300 font-bold">${prob}</td>
             <td class="py-3 px-2 text-right whitespace-nowrap space-x-1">
               <button onclick="startEditPrize('${p.id}')" class="text-amber-300 hover:text-amber-200 text-xs font-bold px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 transition inline-flex items-center gap-1">
                 <i data-lucide="pencil" class="w-3 h-3"></i> 編輯
@@ -2947,52 +4861,107 @@
 
       const tfoot = document.getElementById('prizeTableFoot');
       if (tfoot) {
-        const totalQtyAll = appState.prizes.reduce((s, p) => s + Number(p.totalQty || 0), 0);
-        const remainQtyAll = appState.prizes.reduce((s, p) => s + Number(p.remainQty || 0), 0);
+        const sumTotalQty = appState.prizes.reduce((s, p) => s + (Number(p.totalQty) || 0), 0);
+        const sumRemainQty = appState.prizes.reduce((s, p) => s + (Number(p.remainQty) || 0), 0);
+        const is100 = totalConfiguredWeight === 100;
         tfoot.innerHTML = `
           <tr>
             <td class="py-3 px-2 text-slate-300">總計 (${appState.prizes.length} 項獎品)</td>
-            <td class="py-3 px-2 text-center font-mono text-white">${totalQtyAll}</td>
-            <td class="py-3 px-2 text-center font-mono text-emerald-300">${remainQtyAll}</td>
-            <td class="py-3 px-2 text-center font-mono ${totalConfiguredWeight === 100 ? 'text-emerald-400' : 'text-rose-400'}">
-              加總：${totalConfiguredWeight}% ${totalConfiguredWeight === 100 ? '✅' : '⚠️'}
+            <td class="py-3 px-2 text-center font-mono text-slate-200">${sumTotalQty}</td>
+            <td class="py-3 px-2 text-center font-mono text-emerald-300">${sumRemainQty}</td>
+            <td class="py-3 px-2 text-center font-mono ${is100 ? 'text-emerald-400' : 'text-rose-400'}">
+              ${totalConfiguredWeight}% ${is100 ? '✅' : '⚠️ (未達100%)'}
             </td>
-            <td class="py-3 px-2 text-center font-mono text-amber-300">
-              ${availPrizes.length > 0 && totalActiveWeight > 0 ? '100.0% ✅' : '0.0%'}
+            <td class="py-3 px-2 text-center font-mono text-amber-300">${availPrizes.length > 0 ? '100.0% ✅' : '0.0%'}</td>
+            <td class="py-3 px-2 text-right">
+              ${!is100 && appState.prizes.length > 0 ? `<button onclick="normalizeAllPrizesTo100()" class="text-[11px] px-2.5 py-1 rounded-lg bg-amber-500 text-slate-950 font-black hover:bg-amber-400 transition">配平至 100%</button>` : '<span class="text-emerald-400 text-[11px]">比例總和正確</span>'}
             </td>
-            <td class="py-3 px-2 text-right"></td>
           </tr>
         `;
       }
 
-      // 4. 參加者名單表格 (含編輯與移除按鈕)
+      // 4. 參加者名單管理大總表 (與搖珠抽人/課堂點名群組 100% 雙向連動，完整顯示學號、群組、組別與狀態)
       const currentEditingParticipantId = document.getElementById('editingParticipantId')?.value || '';
-      document.getElementById('totalParticipantsCount').textContent = appState.participants.length;
-      document.getElementById('participantTableBody').innerHTML = appState.participants.map((u, i) => {
-        const isEditingUser = currentEditingParticipantId === u.id;
-        return `
-          <tr class="${isEditingUser ? 'bg-amber-500/10' : 'hover:bg-slate-900/50'} transition">
-            <td class="py-2.5 px-3 text-xs text-slate-500 font-mono">#${i + 1}</td>
-            <td class="py-2.5 px-3 font-bold text-white">
-              ${u.name}
-              ${isEditingUser ? '<span class="ml-1.5 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold">編輯中</span>' : ''}
-            </td>
-            <td class="py-2.5 px-3 text-slate-300 text-xs">${u.dept}</td>
-            <td class="py-2.5 px-3 text-center"><span class="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 text-xs font-bold font-mono">${u.bonus}x</span></td>
-            <td class="py-2.5 px-3 text-center">
-              ${u.isWinner ? '<span class="text-xs text-amber-400 font-bold">🏆 已中獎</span>' : '<span class="text-xs text-slate-400">⏳ 待抽中</span>'}
-            </td>
-            <td class="py-2.5 px-3 text-right whitespace-nowrap space-x-1">
-              <button onclick="startEditParticipant('${u.id}')" class="text-amber-300 hover:text-amber-200 text-xs font-bold px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 transition inline-flex items-center gap-1">
-                <i data-lucide="pencil" class="w-3 h-3"></i> 編輯
-              </button>
-              <button onclick="deleteParticipant('${u.id}')" class="text-rose-400 hover:text-rose-300 text-xs font-bold px-2.5 py-1 rounded-lg bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/50 transition inline-flex items-center gap-1">
-                <i data-lucide="trash-2" class="w-3 h-3"></i> 移除
-              </button>
+      const searchKw = (document.getElementById('participantSearchInput')?.value || '').trim().toLowerCase();
+
+      let displayedMembers = [];
+      const activeMgrGroup = appState.pickerGroups.find(g => g.id === managerViewGroupId);
+      const mgrTitleEl = document.getElementById('managerTableGroupTitle');
+      if (mgrTitleEl) {
+        mgrTitleEl.textContent = managerViewGroupId === 'ALL' ? '🌐 全部群組總覽' : (activeMgrGroup ? activeMgrGroup.name : '目前群組');
+      }
+
+      if (managerViewGroupId === 'ALL') {
+        displayedMembers = appState.participants;
+      } else if (activeMgrGroup) {
+        displayedMembers = activeMgrGroup.members || [];
+      }
+
+      if (searchKw) {
+        displayedMembers = displayedMembers.filter(u =>
+          (u.studentId || '').toLowerCase().includes(searchKw) ||
+          (u.name || '').toLowerCase().includes(searchKw) ||
+          (u.tag || u.dept || '').toLowerCase().includes(searchKw) ||
+          (u.groupName || '').toLowerCase().includes(searchKw)
+        );
+      }
+
+      document.getElementById('totalParticipantsCount').textContent = displayedMembers.length;
+
+      if (displayedMembers.length === 0) {
+        document.getElementById('participantTableBody').innerHTML = `
+          <tr>
+            <td colspan="6" class="py-10 text-center text-xs text-slate-400">
+              目前此群組尚無符合條件的成員，請從左側「單筆新增」或「上傳 Excel / CSV / PDF / 點名表照片」匯入名單！
             </td>
           </tr>
         `;
-      }).join('');
+      } else {
+        document.getElementById('participantTableBody').innerHTML = displayedMembers.map((u, i) => {
+          const isEditingUser = currentEditingParticipantId === u.id;
+          return `
+            <tr class="${isEditingUser ? 'bg-amber-500/10' : 'hover:bg-slate-900/50'} transition">
+              <td class="py-2.5 px-2.5 text-xs font-mono whitespace-nowrap">
+                <span class="text-slate-500 mr-1">#${i + 1}</span>
+                ${u.studentId
+                  ? `<span class="px-2 py-0.5 rounded bg-slate-900 text-amber-300 border border-amber-500/30 font-bold">${u.studentId}</span>`
+                  : `<span class="text-slate-600 text-[11px]">無學號</span>`}
+              </td>
+              <td class="py-2.5 px-2.5 font-bold text-white whitespace-nowrap">
+                ${u.name}
+                ${isEditingUser ? '<span class="ml-1.5 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold">編輯中</span>' : ''}
+              </td>
+              <td class="py-2.5 px-2.5 text-xs">
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <span class="px-2 py-0.5 rounded-md bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 font-bold text-[11px]">${u.groupName || '預設群組'}</span>
+                  <span class="text-slate-300 font-medium">${u.tag || u.dept || '候選成員'}</span>
+                </div>
+              </td>
+              <td class="py-2.5 px-2.5 text-center">
+                <span class="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 text-xs font-bold font-mono">${u.bonus || 1}x</span>
+              </td>
+              <td class="py-2.5 px-2.5 text-center whitespace-nowrap">
+                <div class="inline-flex items-center gap-1">
+                  ${u.isWinner
+                    ? '<span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[11px] font-bold">🏆 已中獎</span>'
+                    : '<span class="px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 text-[11px]">待抽獎</span>'}
+                  ${u.isPicked
+                    ? '<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[11px] font-bold">✅ 已點名</span>'
+                    : '<span class="px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 text-[11px]">🎯 待點名</span>'}
+                </div>
+              </td>
+              <td class="py-2.5 px-2.5 text-right whitespace-nowrap space-x-1">
+                <button onclick="startEditParticipant('${u.id}')" class="text-amber-300 hover:text-amber-200 text-xs font-bold px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 transition inline-flex items-center gap-1">
+                  <i data-lucide="pencil" class="w-3 h-3"></i> 編輯
+                </button>
+                <button onclick="deleteParticipant('${u.id}')" class="text-rose-400 hover:text-rose-300 text-xs font-bold px-2.5 py-1 rounded-lg bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/50 transition inline-flex items-center gap-1">
+                  <i data-lucide="trash-2" class="w-3 h-3"></i> 移除
+                </button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      }
 
       // 5. 統計與核銷總表
       const totalPrizesCount = appState.prizes.reduce((s, p) => s + Number(p.totalQty), 0);
@@ -3054,6 +5023,7 @@
       const fbInput = document.getElementById('inputFirebaseConfig');
       if (fbInput) fbInput.value = customFirebaseCfg;
       document.getElementById('settingsModal').classList.remove('hidden');
+      lucide.createIcons();
     }
 
     function closeSettingsModal() {
@@ -3066,20 +5036,29 @@
       const fbInput = document.getElementById('inputFirebaseConfig');
       if (fbInput) customFirebaseCfg = fbInput.value.trim();
 
+      try {
+        localStorage.setItem(STORAGE_KEY_GEMINI, customGeminiKey);
+        localStorage.setItem(STORAGE_KEY_EVENT_ID, currentEventName);
+        localStorage.setItem(STORAGE_KEY_FB_CFG, customFirebaseCfg);
+      } catch (e) {}
+
       if (window.SaaSBridge) {
         const ok = await window.SaaSBridge.init(customFirebaseCfg, currentEventName);
         if (ok) {
-          document.getElementById('syncBadge').className = 'text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5';
-          document.getElementById('syncBadge').innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Firebase 雲端即時同步中';
-          await window.SaaSBridge.syncEventState(currentEventName, appState);
+          appState.updatedAt = Date.now();
+          await window.SaaSBridge.syncEventState(currentEventName, appState, true);
         }
       }
       closeSettingsModal();
-      showToast('系統、Gemini AI 與 Firebase 雲端設定已更新套用！', 'success');
+      showToast('系統、Gemini AI 與 Firebase 雲端設定已永久保存並套用！', 'success');
     }
 
     function resetToDefaultDemo() {
       appState = JSON.parse(JSON.stringify(DEFAULT_STATE));
+      appState.updatedAt = Date.now();
+      try {
+        localStorage.removeItem(LOCAL_STORAGE_KEY);
+      } catch (e) {}
       saveState();
       closeSettingsModal();
       showToast('已還原為系統預設展示資料！', 'success');
@@ -3089,8 +5068,6 @@
       if (window.SaaSBridge) {
         const ok = await window.SaaSBridge.init(customFirebaseCfg, currentEventName);
         if (ok) {
-          document.getElementById('syncBadge').className = 'text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5';
-          document.getElementById('syncBadge').innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Firebase 雲端即時同步中';
           // 確保系統創作者預設寫入雲端
           const creator = saasMembers.find(m => m.email.toLowerCase() === CREATOR_ADMIN_EMAIL);
           if (creator) await window.SaaSBridge.saveMemberDoc(creator);
