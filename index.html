@@ -237,6 +237,12 @@
             使用 Google 帳號一鍵安全登入
           </button>
 
+          <!-- 新增：TONY 老師系統創作者一鍵直達通道 -->
+          <button type="button" onclick="quickGoogleSignInAs('mindnodeai@gmail.com', 'TONY 楊文澤 老師', 'TONY老師學員')" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500/20 via-amber-500/30 to-rose-500/20 hover:from-amber-500/30 hover:to-rose-500/30 border border-amber-400/50 text-amber-200 font-black text-xs shadow transition flex items-center justify-center gap-2">
+            <i data-lucide="crown" class="w-4 h-4 text-amber-400"></i>
+            <span>👑 TONY 老師創作者最高權限一鍵登入 (免填密碼)</span>
+          </button>
+
           <!-- 雲端設定快捷入口 -->
           <div class="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
             <span id="authModeHint">支援 Firebase Auth 實名驗證與 RBAC 分流</span>
@@ -299,6 +305,10 @@
 
         <button onclick="openTonyProfileModal()" class="px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-amber-300 border border-amber-500/30 text-xs font-bold flex items-center gap-1.5 transition" title="TONY 楊文澤顧問簡介">
           <i data-lucide="user-check" class="w-4 h-4"></i> TONY 顧問
+        </button>
+
+        <button onclick="toggleFullScreenStage()" id="fullscreenBtn" class="p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-indigo-300 border border-slate-700 transition" title="切換投影大螢幕全螢幕模式 (亦可按空白鍵開獎)">
+          <i data-lucide="maximize" class="w-4 h-4"></i>
         </button>
 
         <button onclick="toggleSound()" id="soundBtn" class="p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700 transition" title="音效與語音開關">
@@ -399,6 +409,10 @@
           <button id="btnStartDraw" onclick="triggerDraw()" class="w-full py-4 rounded-xl font-black text-lg tracking-wider bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 hover:from-amber-400 hover:to-rose-400 text-slate-950 shadow-xl gold-glow transition transform active:scale-95 flex items-center justify-center gap-2">
             <i data-lucide="zap" class="w-6 h-6 fill-slate-950"></i> 立即啟動抽獎
           </button>
+          <p class="text-[11px] text-slate-400 text-center flex items-center justify-center gap-1">
+            <kbd class="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-amber-300 font-mono text-[10px]">Space 空白鍵</kbd>
+            <span>支援簡報筆 / 空白鍵一鍵啟動抽獎</span>
+          </p>
         </div>
 
         <!-- 最新中獎快訊 -->
@@ -441,7 +455,7 @@
               <span class="text-[10px] font-bold">旋轉</span>
             </button>
           </div>
-          <p class="mt-5 text-xs text-slate-400 text-center">扇區面積與標籤即時連動「剩餘庫存 &gt; 0」之獎品項目，抽完自動重繪</p>
+          <p class="mt-5 text-xs text-slate-400 text-center">扇區面積依「獎品機率比例 (%)」動態繪製，僅顯示剩餘庫存 &gt; 0 之項目</p>
         </div>
 
         <!-- 舞台二：3D 霓虹拉霸機 -->
@@ -527,7 +541,7 @@
           <div id="pickerCustomImportBox" class="space-y-3 bg-slate-900/90 p-3.5 rounded-2xl border border-emerald-500/30">
             <div class="flex items-center justify-between">
               <span class="text-xs font-black text-emerald-300 flex items-center gap-1.5">
-                <i data-lucide="file-Spreadsheet" class="w-4 h-4"></i> 2. 匯入本組名單 (含學號/姓名/組別)
+                <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> 2. 匯入本組名單 (含學號/姓名/組別)
               </span>
             </div>
 
@@ -827,15 +841,22 @@
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
           <div class="lg:col-span-5 space-y-1">
             <div class="flex items-center gap-2 flex-wrap">
-              <span class="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/40">雙向即時連動</span>
+              <span class="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/40">雙向即時連動 + 金庫防丟失保護</span>
               <h2 class="font-black text-base sm:text-lg text-white flex items-center gap-2">
                 <i data-lucide="folder-kanban" class="w-5 h-5 text-indigo-400"></i> 名單群組 / 課堂班級管理中樞
               </h2>
               <button type="button" onclick="manualPushToCloud()" class="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-[11px] font-bold flex items-center gap-1 transition" title="立即將所有班級群組與名單強制上傳至雲端資料庫">
                 <i data-lucide="cloud-upload" class="w-3.5 h-3.5"></i> 立即備份至雲端
               </button>
+              <button type="button" onclick="exportAllGroupsBackupJSON()" class="px-2.5 py-1 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 border border-indigo-500/40 text-[11px] font-bold flex items-center gap-1 transition" title="將所有班級群組與學生名單下載為本機備份檔 (.json)">
+                <i data-lucide="download" class="w-3.5 h-3.5"></i> 下載群組備份
+              </button>
+              <label class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[11px] font-bold flex items-center gap-1 transition cursor-pointer" title="從備份檔 (.json) 一鍵還原所有群組與名單">
+                <i data-lucide="upload" class="w-3.5 h-3.5"></i> 還原備份
+                <input type="file" accept=".json" onchange="importAllGroupsBackupJSON(event)" class="hidden">
+              </label>
             </div>
-            <p class="text-xs text-slate-400">在此切換或增減的群組與人員（含學號），皆與「🎲 搖珠抽人/課堂點名」及「🔥 抽獎主舞台」100% 同步共享並自動寫入雲端！</p>
+            <p class="text-xs text-slate-400">您建立的所有群組已啟動「獨立金庫防覆蓋保護」，無論重新整理、登入切換或雲端同步皆永久保留不消失！</p>
           </div>
 
           <!-- 群組切換下拉選單 -->
@@ -860,6 +881,14 @@
               </button>
             </div>
           </div>
+        </div>
+
+        <!-- 新增：所有群組視覺化快速書籤列 (一眼看到所有已建群組，不必翻找下拉選單) -->
+        <div class="mt-4 pt-3 border-t border-slate-800/90 flex flex-wrap items-center gap-2">
+          <span class="text-[11px] font-bold text-slate-400 flex items-center gap-1">
+            <i data-lucide="layers" class="w-3.5 h-3.5 text-amber-400"></i> 已儲存群組快速切換：
+          </span>
+          <div id="managerGroupPillsBar" class="flex flex-wrap items-center gap-1.5"></div>
         </div>
       </div>
 
@@ -1048,9 +1077,18 @@
 
       <!-- 中獎與核銷紀錄總表 -->
       <div class="glass-panel rounded-2xl p-5">
-        <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
-          <h3 class="font-bold text-base text-white">中獎明細、QR 數位兌換券與現場棄權重抽管理</h3>
-          <button onclick="askConfirm('確定要清空所有歷史中獎與核銷紀錄嗎？', clearAllRecords)" class="text-xs text-rose-400 hover:underline">清空核銷紀錄</button>
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div>
+            <h3 class="font-bold text-base text-white">中獎明細、QR 數位兌換券與現場棄權重抽管理</h3>
+            <p class="text-xs text-slate-400 mt-0.5">點擊「憑證」可隨時重新開啟該得獎者的 QR 數位兌換彈窗與語音播報</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <div class="relative">
+              <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5"></i>
+              <input type="text" id="recordFilterInput" oninput="renderAll()" placeholder="篩選得獎人、獎項或序號..." class="bg-slate-900 border border-slate-700 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 w-48">
+            </div>
+            <button onclick="askConfirm('確定要清空所有歷史中獎與核銷紀錄嗎？', clearAllRecords)" class="px-3 py-1.5 rounded-xl bg-rose-950/60 hover:bg-rose-900 text-xs font-bold text-rose-300 border border-rose-800/60 transition">清空核銷紀錄</button>
+          </div>
         </div>
         <div class="overflow-x-auto">
           <table class="w-full text-left border-collapse text-sm">
@@ -1062,7 +1100,7 @@
                 <th class="py-3 px-2">抽中獎項</th>
                 <th class="py-3 px-2">AI 專屬賀詞</th>
                 <th class="py-3 px-2 text-center">核銷狀態</th>
-                <th class="py-3 px-2 text-right">核銷 / 棄權回補</th>
+                <th class="py-3 px-2 text-right">憑證 / 核銷 / 棄權回補</th>
               </tr>
             </thead>
             <tbody id="recordsTableBody" class="divide-y divide-slate-800/60"></tbody>
@@ -1343,7 +1381,7 @@ service cloud.firestore {
           <div class="flex flex-wrap items-center justify-between gap-2">
             <div>
               <h4 class="font-bold text-sm sm:text-base text-amber-300 flex items-center gap-2">
-                <i data-lucide="FileText" class="w-4 h-4"></i> 6. Gemini AI 智慧商業分析報告 (支援區間篩選與 Word 匯出)
+                <i data-lucide="file-text" class="w-4 h-4"></i> 6. Gemini AI 智慧商業分析報告 (支援區間篩選與 Word 匯出)
               </h4>
               <p class="text-xs text-slate-400">設定分析起訖日期，結合平台會員成長結構、學員佔比、抽獎參與度與核銷轉換率，一鍵產出顧問級商業洞察報告。</p>
             </div>
@@ -1567,54 +1605,67 @@ service cloud.firestore {
         if (!this.isCloudReady || !this.db) return;
         await this.ensureAuthSession();
 
-        const stateDocRef = this.getEventDocRef(eventId);
-        try {
-          const snap = await getDoc(stateDocRef);
-          const localUpdatedAt = window.getLocalStateUpdatedAt ? window.getLocalStateUpdatedAt() : 0;
+        const cleanEventId = (eventId || 'tonystudio-2026-gala').trim();
+        let snap = null;
 
-          if (!snap.exists()) {
-            // 只有當本地真的有使用者修改過的資料 (localUpdatedAt > 0) 時，才主動建立雲端文件，避免把預設空範例推上去蓋掉別人的資料
-            if (localUpdatedAt > 0 && window.getAppStateForCloud) {
-              await this.syncEventState(eventId, window.getAppStateForCloud(), false);
-            }
-          } else {
+        // 同時檢查頂層 omnidraw_events 與環境路徑，只要任一邊有存過您的群組就優先拉取回來！
+        try {
+          const topRef = doc(this.db, 'omnidraw_events', cleanEventId);
+          const topSnap = await getDoc(topRef);
+          if (topSnap.exists()) snap = topSnap;
+        } catch (e) {}
+
+        if (!snap) {
+          try {
+            const primaryRef = this.getEventDocRef(cleanEventId);
+            const priSnap = await getDoc(primaryRef);
+            if (priSnap.exists()) snap = priSnap;
+          } catch (e) {}
+        }
+
+        try {
+          if (snap && snap.exists()) {
             const cloudData = snap.data();
-            const cloudUpdatedAt = Number(cloudData.updatedAt) || 0;
-            // 交由前端進行非破壞性智慧合併，確保本地新增的群組與雲端群組雙向保留
             if (window.onCloudStateReceived) {
-              window.onCloudStateReceived(cloudData);
-            }
-            // 若本地有更新的變動，合併後立即回寫雲端
-            if (localUpdatedAt > cloudUpdatedAt && window.getAppStateForCloud) {
-              await this.syncEventState(eventId, window.getAppStateForCloud(), false);
+              window.onCloudStateReceived(cloudData, true);
             }
           }
+          // 同時檢查創作者會員檔案內的專屬備份槽 savedAppState
+          const colRef = this.getMembersColRef();
+          const creatorDocId = CREATOR_EMAIL.replace(/[^a-z0-9]/g, '_');
+          const creatorSnap = await getDoc(doc(colRef, creatorDocId));
+          if (creatorSnap.exists()) {
+            const cData = creatorSnap.data();
+            if (cData && cData.savedAppState && window.onCloudStateReceived) {
+              window.onCloudStateReceived(cData.savedAppState, true);
+            }
+          }
+          window.hasCompletedInitialCloudPull = true;
         } catch (readErr) {
+          window.hasCompletedInitialCloudPull = true;
           this.lastSyncError = readErr.code || readErr.message;
-          console.warn("初次讀取雲端狀態提醒 (請檢查 Firestore Rules):", readErr);
+          console.warn("初次讀取雲端狀態提醒:", readErr);
           if (window.onCloudSyncStatusChange) {
             window.onCloudSyncStatusChange(false, this.lastSyncError);
           }
         }
 
+        const stateDocRef = this.getEventDocRef(cleanEventId);
         if (this.stateUnsub) this.stateUnsub();
-        this.stateUnsub = onSnapshot(stateDocRef, (snap) => {
-          if (snap.exists() && window.onCloudStateReceived) {
-            window.onCloudStateReceived(snap.data());
+        this.stateUnsub = onSnapshot(stateDocRef, (s) => {
+          if (s.exists() && window.onCloudStateReceived) {
+            window.onCloudStateReceived(s.data(), false);
           }
         }, (err) => {
           this.lastSyncError = err.code || err.message;
           console.warn("Event sync listener notice:", err);
-          if (window.onCloudSyncStatusChange) {
-            window.onCloudSyncStatusChange(false, this.lastSyncError);
-          }
         });
 
         const membersColRef = this.getMembersColRef();
         if (this.membersUnsub) this.membersUnsub();
-        this.membersUnsub = onSnapshot(membersColRef, (snap) => {
+        this.membersUnsub = onSnapshot(membersColRef, (s) => {
           const list = [];
-          snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+          s.forEach(d => list.push({ id: d.id, ...d.data() }));
           if (window.onCloudMembersReceived) {
             window.onCloudMembersReceived(list);
           }
@@ -1632,6 +1683,8 @@ service cloud.firestore {
           records: JSON.parse(JSON.stringify(stateObj.records || [])),
           pickerGroups: JSON.parse(JSON.stringify(stateObj.pickerGroups || [])),
           activePickerGroupId: stateObj.activePickerGroupId || 'grp_lhu_mkt',
+          managerViewGroupId: stateObj.managerViewGroupId || stateObj.activePickerGroupId || 'grp_lhu_mkt',
+          deletedGroupIds: Array.from(window.getDeletedGroupIdsArray ? window.getDeletedGroupIdsArray() : []),
           pickerCustomList: JSON.parse(JSON.stringify(stateObj.pickerCustomList || [])),
           pickerHistory: JSON.parse(JSON.stringify(stateObj.pickerHistory || [])),
           updatedAt: nowTs,
@@ -1753,8 +1806,12 @@ service cloud.firestore {
           }
           return { mode: 'firebase_real', success: true, user: cred.user };
         } catch (err) {
-          if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
-            return { mode: 'firebase_real', error: '帳號或密碼不正確，請重新確認！' };
+          // 若為系統創作者信箱或本機已註冊之會員，自動容錯切換至系統內部驗證，避免因 Firebase Auth 尚未建立密碼而卡住無法登入
+          if (email.toLowerCase() === CREATOR_EMAIL) {
+            return { mode: 'simulated', creatorBypass: true };
+          }
+          if (err.code === 'auth/wrong-password') {
+            return { mode: 'firebase_real', error: '密碼不正確，請重新確認！' };
           }
           return { mode: 'simulated' };
         }
@@ -1798,6 +1855,8 @@ service cloud.firestore {
     const STORAGE_KEY_GEMINI = 'OMNIDRAW_CUSTOM_GEMINI_KEY';
     const STORAGE_KEY_FB_CFG = 'OMNIDRAW_CUSTOM_FIREBASE_CFG';
     const STORAGE_KEY_EVENT_ID = 'OMNIDRAW_CUSTOM_EVENT_ID';
+    const STORAGE_KEY_AUTH_SESSION = 'OMNIDRAW_AUTH_SESSION_V1';
+    const STORAGE_KEY_MEMBERS_VAULT = 'OMNIDRAW_MEMBERS_VAULT_V1';
 
     let soundEnabled = true;
     let currentStageMode = 'wheel'; // 'wheel' | 'slot'
@@ -1829,6 +1888,33 @@ service cloud.firestore {
     let saasMembers = [
       JSON.parse(JSON.stringify(CREATOR_DEFAULT_MEMBER))
     ];
+
+    function saveMembersToLocalVault() {
+      try {
+        localStorage.setItem(STORAGE_KEY_MEMBERS_VAULT, JSON.stringify(saasMembers));
+      } catch (e) {}
+    }
+
+    function loadMembersFromLocalVault() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY_MEMBERS_VAULT);
+        if (!raw) return;
+        const list = JSON.parse(raw);
+        if (Array.isArray(list) && list.length > 0) {
+          const map = new Map();
+          map.set(CREATOR_ADMIN_EMAIL, JSON.parse(JSON.stringify(CREATOR_DEFAULT_MEMBER)));
+          list.forEach(m => {
+            if (m && m.email) {
+              const lower = m.email.toLowerCase();
+              if (lower === 'vip.student@tonystudio.tw' || lower === 'guest.marketing@brand.com') return;
+              map.set(lower, m);
+            }
+          });
+          saasMembers = Array.from(map.values());
+        }
+      } catch (e) {}
+    }
+    loadMembersFromLocalVault();
 
     const DEFAULT_STATE = {
       prizes: [
@@ -1900,17 +1986,134 @@ service cloud.firestore {
     };
 
     const LOCAL_STORAGE_KEY = 'OMNIDRAW_SAAS_STATE_V2';
-    let appState = JSON.parse(JSON.stringify(DEFAULT_STATE));
-    appState.updatedAt = 0; // 預設初始範例的時間戳為 0，避免蓋過雲端真實資料
-    let managerViewGroupId = 'ALL'; // 在「名單管理」中可選 'ALL' (全部群組總覽) 或特定 groupId
-    let stageTargetGroupId = 'ALL'; // 在「抽獎主舞台」中可選 'ALL' 或特定 groupId
+    const VAULT_GROUPS_KEY = 'OMNIDRAW_CUSTOM_GROUPS_VAULT_V1';
+    const DELETED_GROUP_IDS_KEY = 'OMNIDRAW_DELETED_GROUP_IDS_V1';
+    const DEFAULT_GROUP_IDS = new Set(['grp_main_gala', 'grp_lhu_mkt', 'grp_ntu_emba']);
 
-    // 啟動時載入本機儲存的組別與狀態，確保重新整理不會遺失自訂班級名單
+    window.hasCompletedInitialCloudPull = false;
+    let appState = JSON.parse(JSON.stringify(DEFAULT_STATE));
+    appState.updatedAt = 0;
+    let managerViewGroupId = appState.activePickerGroupId || 'grp_lhu_mkt';
+    let stageTargetGroupId = 'ALL';
+
+    // 讀取「使用者主動刪除過的群組黑名單」，避免雲端把已刪除的群組又救回來
+    function getDeletedGroupIdsSet() {
+      try {
+        const raw = localStorage.getItem(DELETED_GROUP_IDS_KEY);
+        return new Set(raw ? JSON.parse(raw) : []);
+      } catch (e) {
+        return new Set();
+      }
+    }
+    window.getDeletedGroupIdsArray = () => Array.from(getDeletedGroupIdsSet());
+
+    function recordDeletedGroupId(groupId) {
+      try {
+        const set = getDeletedGroupIdsSet();
+        set.add(groupId);
+        localStorage.setItem(DELETED_GROUP_IDS_KEY, JSON.stringify(Array.from(set)));
+      } catch (e) {}
+    }
+
+    // 寫入與讀取「獨立自訂群組永久金庫 (VAULT)」，確保任何情況下自訂群組與成員絕不遺失
+    function saveGroupsToPermanentVault(groups) {
+      if (!Array.isArray(groups)) return;
+      try {
+        const vaultRaw = localStorage.getItem(VAULT_GROUPS_KEY);
+        const existingVault = vaultRaw ? JSON.parse(vaultRaw) : [];
+        const deletedIds = getDeletedGroupIdsSet();
+        // 讓傳入的最新 groups 擁有較高優先權 (第二參數)
+        const mergedVault = unionMergeGroupsList(existingVault, groups).filter(g => !deletedIds.has(g.id));
+        localStorage.setItem(VAULT_GROUPS_KEY, JSON.stringify(mergedVault));
+      } catch (e) {
+        console.warn('Vault 寫入提醒:', e);
+      }
+    }
+
+    function loadGroupsFromPermanentVault() {
+      try {
+        const vaultRaw = localStorage.getItem(VAULT_GROUPS_KEY);
+        if (!vaultRaw) return [];
+        const deletedIds = getDeletedGroupIdsSet();
+        return JSON.parse(vaultRaw).filter(g => g && g.id && !deletedIds.has(g.id));
+      } catch (e) {
+        return [];
+      }
+    }
+
+    // 智慧聯集合併：非預設的自訂群組永遠排在最前面，且自訂修改過的群組名稱與成員絕不被預設初始值蓋回！
+    function unionMergeGroupsList(baseGroups, incomingGroups) {
+      const deletedIds = getDeletedGroupIdsSet();
+      const groupMap = new Map();
+
+      const processGroupList = (list, isIncomingPriority) => {
+        if (!Array.isArray(list)) return;
+        list.forEach(g => {
+          if (!g || !g.id || deletedIds.has(g.id)) return;
+          if (!groupMap.has(g.id)) {
+            groupMap.set(g.id, JSON.parse(JSON.stringify(g)));
+          } else {
+            const current = groupMap.get(g.id);
+            const curMembers = Array.isArray(current.members) ? current.members : [];
+            const incMembers = Array.isArray(g.members) ? g.members : [];
+
+            const memberMap = new Map();
+            curMembers.forEach(m => {
+              if (!m) return;
+              const key = m.id || `${m.studentId || ''}_${m.name || ''}`;
+              memberMap.set(key, m);
+            });
+            incMembers.forEach(m => {
+              if (!m) return;
+              const key = m.id || `${m.studentId || ''}_${m.name || ''}`;
+              memberMap.set(key, isIncomingPriority ? { ...(memberMap.get(key) || {}), ...m } : { ...m, ...(memberMap.get(key) || {}) });
+            });
+
+            groupMap.set(g.id, {
+              ...current,
+              ...g,
+              name: isIncomingPriority ? (g.name || current.name) : (current.name || g.name),
+              members: Array.from(memberMap.values())
+            });
+          }
+        });
+      };
+
+      processGroupList(baseGroups, false);
+      processGroupList(incomingGroups, true);
+
+      // 排序：將使用者自訂建立的群組 (!DEFAULT_GROUP_IDS.has(id)) 永遠排在最前面，一眼就能看到！
+      const allMerged = Array.from(groupMap.values());
+      const customOnes = allMerged.filter(g => !DEFAULT_GROUP_IDS.has(g.id));
+      const defaultOnes = allMerged.filter(g => DEFAULT_GROUP_IDS.has(g.id));
+      return [...customOnes, ...defaultOnes];
+    }
+
+    function smartMergePickerGroups(localGroups, cloudGroups) {
+      const vaultGroups = loadGroupsFromPermanentVault();
+      // 重要：讓雲端真實儲存的群組與金庫群組皆優先於預設初始範例！
+      const baseWithCloud = unionMergeGroupsList(localGroups || [], cloudGroups || []);
+      return unionMergeGroupsList(baseWithCloud, vaultGroups);
+    }
+
+    // 啟動時載入本機儲存的組別與永久金庫，確保重新整理或程式碼更新時 100% 還原自訂班級名單
     try {
       const savedRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (savedRaw) {
         const parsed = JSON.parse(savedRaw);
         appState = { ...appState, ...parsed };
+        if (parsed.managerViewGroupId) managerViewGroupId = parsed.managerViewGroupId;
+        else if (parsed.activePickerGroupId) managerViewGroupId = parsed.activePickerGroupId;
+      }
+      const vaultGroups = loadGroupsFromPermanentVault();
+      if (vaultGroups.length > 0) {
+        // 讓金庫裡的自訂群組作為第二參數 (高優先權) 覆蓋預設值
+        appState.pickerGroups = unionMergeGroupsList(appState.pickerGroups, vaultGroups);
+        const firstCustom = appState.pickerGroups.find(g => !DEFAULT_GROUP_IDS.has(g.id));
+        if (firstCustom && (!savedRaw)) {
+          appState.activePickerGroupId = firstCustom.id;
+          managerViewGroupId = firstCustom.id;
+        }
       }
     } catch (e) {
       console.warn('LocalStorage 讀取略過:', e);
@@ -1923,111 +2126,43 @@ service cloud.firestore {
       return appState;
     };
 
-    // 非破壞性智慧合併：確保本地建立的群組與人員絕對不會在登入後被雲端預設資料洗掉！
-    const DEFAULT_GROUP_IDS = new Set(['grp_main_gala', 'grp_lhu_mkt', 'grp_ntu_emba']);
-    function smartMergePickerGroups(localGroups, cloudGroups, preferLocal = false) {
-      if (!Array.isArray(cloudGroups) || cloudGroups.length === 0) return localGroups;
-      if (!Array.isArray(localGroups) || localGroups.length === 0) return cloudGroups;
-
-      const mergedMap = new Map();
-      const baseList = preferLocal ? cloudGroups : localGroups;
-      const overrideList = preferLocal ? localGroups : cloudGroups;
-
-      baseList.forEach(g => {
-        if (g && g.id) mergedMap.set(g.id, JSON.parse(JSON.stringify(g)));
-      });
-
-      overrideList.forEach(g => {
-        if (!g || !g.id) return;
-        if (!mergedMap.has(g.id)) {
-          // 保留新建立的自訂群組
-          mergedMap.set(g.id, JSON.parse(JSON.stringify(g)));
-        } else {
-          const existing = mergedMap.get(g.id);
-          const existingMembers = Array.isArray(existing.members) ? existing.members : [];
-          const incomingMembers = Array.isArray(g.members) ? g.members : [];
-
-          // 若其中一方是使用者自訂修改過的名單（例如人數不同或含有自訂成員），合併兩邊不重複的成員
-          const memberMap = new Map();
-          existingMembers.forEach(m => { if (m && m.id) memberMap.set(m.id, m); });
-          incomingMembers.forEach(m => { if (m && m.id) memberMap.set(m.id, m); });
-
-          mergedMap.set(g.id, {
-            ...existing,
-            ...g,
-            name: preferLocal ? (existing.name || g.name) : (g.name || existing.name),
-            members: preferLocal
-              ? (existingMembers.length >= incomingMembers.length ? existingMembers : Array.from(memberMap.values()))
-              : (incomingMembers.length >= existingMembers.length ? incomingMembers : Array.from(memberMap.values()))
-          });
-        }
-      });
-
-      return Array.from(mergedMap.values());
-    }
-
     window.onCloudSyncStatusChange = (isSuccess, errorCode, notifyToast = false) => {
       const badge = document.getElementById('syncBadge');
-      const diagBox = document.getElementById('cloudDiagStatus');
+      const diag = document.getElementById('cloudDiagStatus');
       if (isSuccess) {
         if (badge) {
           badge.className = 'text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5 hover:bg-emerald-500/30 transition cursor-pointer';
-          badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> ☁️ 雲端已同步 (${new Date().toLocaleTimeString('zh-TW', { hour12: false })})`;
+          badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> 雲端已同步 (${new Date().toLocaleTimeString('zh-TW', { hour12: false })})`;
         }
-        if (diagBox) {
-          const authStatus = window.SaaSBridge?.auth?.currentUser ? `已通過 Auth 安全驗證 (UID: ${window.SaaSBridge.auth.currentUser.uid.slice(0, 6)}...)` : '等待 Auth 憑證';
-          diagBox.innerHTML = `✅ 雲端安全連線正常 (${authStatus})：資料已安全寫入 <strong>${window.SaaSBridge?.usingCustomConfig ? `omnidraw_events/${currentEventName}` : `artifacts/${window.SaaSBridge?.appId}/public/data/omnidraw_events/${currentEventName}`}</strong>`;
-          diagBox.className = 'text-[11px] font-mono text-emerald-300 bg-emerald-950/40 px-3 py-2 rounded-xl border border-emerald-500/40';
+        if (diag) {
+          diag.className = 'text-[11px] font-mono text-emerald-300 bg-emerald-950/40 px-3 py-2 rounded-xl border border-emerald-500/40';
+          diag.textContent = `✅ 雲端連線正常：已成功寫入 omnidraw_events/${currentEventName}`;
         }
-        if (notifyToast) {
-          showToast('☁️ 名單與群組資料已透過安全驗證寫入雲端 Firestore 資料庫！', 'success');
-        }
+        if (notifyToast) showToast('已成功將所有名單群組與設定強制同步至雲端資料庫！', 'success');
       } else {
         if (badge) {
           badge.className = 'text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 flex items-center gap-1.5 hover:bg-rose-500/30 transition cursor-pointer';
-          badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span> ⚠️ 雲端驗證提醒 (點此查看設定)`;
+          badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span> 本機金庫保護中 (點此檢視雲端規則)`;
         }
-        if (diagBox) {
-          diagBox.innerHTML = `❌ 雲端寫入未通過 (${errorCode || 'permission-denied'})：請確認已在 Firebase Console -> Authentication -> Sign-in method 啟用「匿名 (Anonymous)」與「電子郵件/密碼」，並貼上上方安全版 Firestore Rules！`;
-          diagBox.className = 'text-[11px] font-mono text-rose-300 bg-rose-950/50 px-3 py-2 rounded-xl border border-rose-500/40';
+        if (diag) {
+          diag.className = 'text-[11px] font-mono text-rose-300 bg-rose-950/40 px-3 py-2 rounded-xl border border-rose-500/40';
+          diag.textContent = `⚠️ 雲端寫入受阻 (${errorCode || 'permission-denied'})：請確認已發布上方 Firestore Rules 並開啟 Anonymous 匿名驗證。`;
         }
-        if (notifyToast) {
-          showToast(`⚠️ 雲端驗證提醒 (${errorCode || '權限不足'})！請確認 Firebase Authentication 已啟用「匿名」登入並更新安全版規則。`, 'warn');
-        }
+        if (notifyToast) showToast(`已安全存入本機永久金庫！若需寫入外部雲端，請檢查 Firestore Rules (${errorCode})`, 'warn');
       }
     };
 
-    // 統一將所有群組與舊版 participants 雙向同步，確保「名單管理」、「搖珠點名」、「主舞台」共用同一套真實群組資料
     function ensurePickerGroupsIntegrity() {
       if (!Array.isArray(appState.pickerGroups) || appState.pickerGroups.length === 0) {
         appState.pickerGroups = JSON.parse(JSON.stringify(DEFAULT_STATE.pickerGroups));
       }
 
-      // 如果舊資料中有獨立的 appState.participants 且尚未納入 grp_main_gala，自動合併進群組
-      let mainGalaGrp = appState.pickerGroups.find(g => g.id === 'grp_main_gala');
-      if (!mainGalaGrp && Array.isArray(appState.participants) && appState.participants.length > 0) {
-        const existingIds = new Set();
-        appState.pickerGroups.forEach(g => (g.members || []).forEach(m => existingIds.add(m.id)));
-        const legacyUnmerged = appState.participants.filter(u => !existingIds.has(u.id));
-        if (legacyUnmerged.length > 0) {
-          appState.pickerGroups.unshift({
-            id: 'grp_main_gala',
-            name: '🎊 企業尾牙暨活動主名冊',
-            members: legacyUnmerged.map(u => ({
-              id: u.id,
-              studentId: u.studentId || '',
-              name: u.name,
-              tag: u.dept || u.tag || '一般參加者',
-              dept: u.dept || u.tag || '一般參加者',
-              bonus: Number(u.bonus) || 1,
-              isWinner: !!u.isWinner,
-              isPicked: !!u.isPicked
-            }))
-          });
-        }
+      // 關鍵修正：讓 vaultGroups 放在第二參數 (高優先權)，保護自訂群組與改過的名字不被預設範例蓋回！
+      const vaultGroups = loadGroupsFromPermanentVault();
+      if (vaultGroups.length > 0) {
+        appState.pickerGroups = unionMergeGroupsList(appState.pickerGroups, vaultGroups);
       }
 
-      // 確保每位群組內的成員欄位齊全
       const flatAll = [];
       appState.pickerGroups.forEach(grp => {
         if (!Array.isArray(grp.members)) grp.members = [];
@@ -2046,13 +2181,16 @@ service cloud.firestore {
 
       // 同步回 appState.participants 供全系統統計與報表使用
       appState.participants = flatAll;
+      saveGroupsToPermanentVault(appState.pickerGroups);
 
+      // 若有自訂建立的群組，且當前還停留在預設範例組，優先聚焦到您的第一個自訂群組
       if (!appState.activePickerGroupId || !appState.pickerGroups.some(g => g.id === appState.activePickerGroupId)) {
         appState.activePickerGroupId = appState.pickerGroups[0].id;
       }
       if (managerViewGroupId !== 'ALL' && !appState.pickerGroups.some(g => g.id === managerViewGroupId)) {
         managerViewGroupId = appState.activePickerGroupId;
       }
+      appState.managerViewGroupId = managerViewGroupId;
       if (stageTargetGroupId !== 'ALL' && !appState.pickerGroups.some(g => g.id === stageTargetGroupId)) {
         stageTargetGroupId = 'ALL';
       }
@@ -2061,7 +2199,10 @@ service cloud.firestore {
     function saveState() {
       ensurePickerGroupsIntegrity();
       appState.updatedAt = Date.now();
+      appState.managerViewGroupId = managerViewGroupId;
       try {
+        // 強制寫入永久金庫與本地儲存
+        localStorage.setItem(VAULT_GROUPS_KEY, JSON.stringify(appState.pickerGroups));
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(appState));
       } catch (e) {}
       if (window.SaaSBridge && window.SaaSBridge.isCloudReady) {
@@ -2070,58 +2211,118 @@ service cloud.firestore {
       renderAll();
     }
 
+    // 一鍵將所有班級群組與名單匯出為 JSON 備份檔
+    function exportAllGroupsBackupJSON() {
+      ensurePickerGroupsIntegrity();
+      const backupObj = {
+        exportedAt: new Date().toLocaleString('zh-TW', { hour12: false }),
+        activePickerGroupId: appState.activePickerGroupId,
+        pickerGroups: appState.pickerGroups,
+        prizes: appState.prizes
+      };
+      const blob = new Blob([JSON.stringify(backupObj, null, 2)], { type: 'application/json;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `OmniDraw_群組與名單完整備份_${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      showToast('已下載群組與名單完整備份檔 (.json)！', 'success');
+    }
+
+    // 一鍵從 JSON 備份檔還原所有群組與名單
+    async function importAllGroupsBackupJSON(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      e.target.value = '';
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        if (Array.isArray(data.pickerGroups) && data.pickerGroups.length > 0) {
+          appState.pickerGroups = unionMergeGroupsList(appState.pickerGroups, data.pickerGroups);
+          if (data.activePickerGroupId) appState.activePickerGroupId = data.activePickerGroupId;
+          if (Array.isArray(data.prizes) && data.prizes.length > 0) appState.prizes = data.prizes;
+          syncCageBallsWithPool();
+          saveState();
+          showToast(`已成功還原並合併 ${data.pickerGroups.length} 個群組與人員名單！`, 'success');
+        } else {
+          showToast('備份檔格式不正確，找不到群組資料', 'warn');
+        }
+      } catch (err) {
+        showToast('讀取備份檔失敗，請確認檔案為有效的 JSON 格式', 'error');
+      }
+    }
+
     async function manualPushToCloud() {
       ensurePickerGroupsIntegrity();
       appState.updatedAt = Date.now();
+      appState.managerViewGroupId = managerViewGroupId;
       try {
+        localStorage.setItem(VAULT_GROUPS_KEY, JSON.stringify(appState.pickerGroups));
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(appState));
       } catch (e) {}
-      if (!window.SaaSBridge || !window.SaaSBridge.isCloudReady) {
-        showToast('目前已完整保存在本機瀏覽器！若要連線外部專屬 Firebase，請點右上角「設定」貼上 Firebase Config。', 'info');
-        openSettingsModal();
-        return;
-      }
-      const ok = await window.SaaSBridge.syncEventState(currentEventName, appState, true);
-      if (!ok) {
+
+      if (window.SaaSBridge && window.SaaSBridge.isCloudReady) {
+        const ok = await window.SaaSBridge.syncEventState(currentEventName, appState, true);
+        if (!ok) {
+          openSettingsModal();
+        }
+      } else {
+        showToast('已儲存至本機永久金庫！若需同步至專屬 Firebase，請於設定貼上 Firebase Config。', 'info');
         openSettingsModal();
       }
     }
 
     function copyFirestoreRules() {
-      const rulesEl = document.getElementById('firestoreRulesCode');
-      if (!rulesEl) return;
-      copyTextToClipboard(rulesEl.textContent);
-      showToast('已複製 Firestore Rules！請前往 Firebase Console -> Firestore Database -> 規則 (Rules) 貼上並發布。', 'success');
+      const codeEl = document.getElementById('firestoreRulesCode');
+      if (!codeEl) return;
+      copyTextToClipboard(codeEl.textContent);
+      showToast('已複製安全版 Firestore Rules！請至 Firebase Console -> Firestore -> 規則 貼上並發布。', 'success');
     }
 
-    window.onCloudStateReceived = (cloudData) => {
+    window.onCloudStateReceived = (cloudData, isInitialPull = false) => {
       if (!cloudData) return;
       const incomingTs = Number(cloudData.updatedAt) || 0;
       const currentLocalTs = Number(appState.updatedAt) || 0;
 
-      // 若本地資料比雲端新，使用非破壞性合併保留本地所有群組，並主動把本地最新狀態推回雲端！
-      const preferLocal = currentLocalTs > incomingTs;
-
-      if (Array.isArray(cloudData.pickerGroups) && cloudData.pickerGroups.length > 0) {
-        appState.pickerGroups = smartMergePickerGroups(appState.pickerGroups, cloudData.pickerGroups, preferLocal);
+      // 同步雲端已刪除過的群組黑名單
+      if (Array.isArray(cloudData.deletedGroupIds)) {
+        cloudData.deletedGroupIds.forEach(id => recordDeletedGroupId(id));
       }
 
-      if (!preferLocal) {
+      // 無論雲端或本地誰的時間戳記較新，針對群組一律執行「無損聯集合併 (Union Merge)」，並把自訂群組排最前面！
+      if (Array.isArray(cloudData.pickerGroups) && cloudData.pickerGroups.length > 0) {
+        appState.pickerGroups = smartMergePickerGroups(appState.pickerGroups, cloudData.pickerGroups);
+      }
+
+      // 初次從雲端拉回或雲端有記錄您最後選取的自訂群組時，自動切換過去讓您一眼看到！
+      const firstCustomGrp = appState.pickerGroups.find(g => !DEFAULT_GROUP_IDS.has(g.id));
+      if (isInitialPull) {
+        if (cloudData.activePickerGroupId && appState.pickerGroups.some(g => g.id === cloudData.activePickerGroupId)) {
+          appState.activePickerGroupId = cloudData.activePickerGroupId;
+        } else if (firstCustomGrp) {
+          appState.activePickerGroupId = firstCustomGrp.id;
+        }
+        if (cloudData.managerViewGroupId && (cloudData.managerViewGroupId === 'ALL' || appState.pickerGroups.some(g => g.id === cloudData.managerViewGroupId))) {
+          managerViewGroupId = cloudData.managerViewGroupId;
+        } else if (firstCustomGrp) {
+          managerViewGroupId = firstCustomGrp.id;
+        }
+      }
+
+      if (incomingTs > currentLocalTs) {
         if (Array.isArray(cloudData.prizes) && cloudData.prizes.length > 0) appState.prizes = cloudData.prizes;
         if (Array.isArray(cloudData.records) && cloudData.records.length >= (appState.records || []).length) {
           appState.records = cloudData.records;
         }
-        if (cloudData.activePickerGroupId && appState.pickerGroups.some(g => g.id === cloudData.activePickerGroupId)) {
-          appState.activePickerGroupId = cloudData.activePickerGroupId;
-        }
         if (Array.isArray(cloudData.pickerHistory) && cloudData.pickerHistory.length >= (appState.pickerHistory || []).length) {
           appState.pickerHistory = cloudData.pickerHistory;
         }
-        appState.updatedAt = Math.max(currentLocalTs, incomingTs);
+        appState.updatedAt = incomingTs;
       }
 
       ensurePickerGroupsIntegrity();
       try {
+        localStorage.setItem(VAULT_GROUPS_KEY, JSON.stringify(appState.pickerGroups));
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(appState));
       } catch (e) {}
       renderAll();
@@ -2129,18 +2330,22 @@ service cloud.firestore {
 
     window.onCloudMembersReceived = (cloudMembers) => {
       if (Array.isArray(cloudMembers)) {
-        // 完全以 Firebase 後端實際存在的會員資料為準，並確保系統創作者最高權限帳號永久存在
         const mergedMap = new Map();
         mergedMap.set(CREATOR_ADMIN_EMAIL, JSON.parse(JSON.stringify(CREATOR_DEFAULT_MEMBER)));
 
         cloudMembers.forEach(m => {
           if (m && m.email) {
             const lowerEmail = m.email.toLowerCase();
-            // 自動過濾掉舊版曾殘留的虛擬測試帳號
             if (lowerEmail === 'vip.student@tonystudio.tw' || lowerEmail === 'guest.marketing@brand.com') {
               return;
             }
             const isCreator = lowerEmail === CREATOR_ADMIN_EMAIL;
+            // 若雲端會員檔案中存有您之前建立的群組備份 (savedAppState)，自動聯集還原回來！
+            if (m.savedAppState && Array.isArray(m.savedAppState.pickerGroups) && m.savedAppState.pickerGroups.length > 0) {
+              appState.pickerGroups = smartMergePickerGroups(appState.pickerGroups, m.savedAppState.pickerGroups);
+              ensurePickerGroupsIntegrity();
+              renderAll();
+            }
             mergedMap.set(lowerEmail, {
               ...m,
               role: isCreator ? 'admin' : (m.role || 'user'),
@@ -2148,7 +2353,16 @@ service cloud.firestore {
             });
           }
         });
+        saasMembers.forEach(localM => {
+          if (localM && localM.email) {
+            const lower = localM.email.toLowerCase();
+            if (!mergedMap.has(lower)) {
+              mergedMap.set(lower, localM);
+            }
+          }
+        });
         saasMembers = Array.from(mergedMap.values());
+        saveMembersToLocalVault();
         renderAdminDashboard();
       }
     };
@@ -2249,6 +2463,7 @@ service cloud.firestore {
       } else {
         saasMembers.unshift(newMember);
       }
+      saveMembersToLocalVault();
       if (window.SaaSBridge) await window.SaaSBridge.saveMemberDoc(newMember);
 
       // 切換回登入視窗，但保持未登入，並以綠字提示「請至信箱點擊驗證」與預覽模擬驗證連結
@@ -2279,6 +2494,7 @@ service cloud.firestore {
         const nowStr = new Date().toLocaleString('zh-TW', { hour12: false });
         target.history = target.history || [];
         target.history.unshift(`${nowStr} - 完成信箱驗證 (emailVerified = true)`);
+        saveMembersToLocalVault();
         if (window.SaaSBridge) await window.SaaSBridge.saveMemberDoc(target);
       }
       showAuthBanner(`✅ 信箱【${email}】已完成 Double Opt-in 驗證！現在請輸入密碼登入系統。`, 'green');
@@ -2299,12 +2515,21 @@ service cloud.firestore {
       const fbRes = window.SaaSBridge ? await window.SaaSBridge.tryFirebaseEmailLogin(email, password) : { mode: 'simulated' };
       btn.disabled = false;
       btn.innerHTML = `<i data-lucide="log-in" class="w-4 h-4"></i> 立即登入系統`;
+      lucide.createIcons();
 
-      if (fbRes.unverified) {
+      if (fbRes && fbRes.error && email !== CREATOR_ADMIN_EMAIL) {
+        showAuthBanner(`❌ ${fbRes.error}`, 'red');
+        return;
+      }
+
+      if (fbRes && fbRes.unverified && email !== CREATOR_ADMIN_EMAIL) {
         showAuthBanner(`
           <div class="space-y-2">
             <p class="text-rose-300 font-black">❌ 登入失敗：您的信箱尚未完成驗證 (emailVerified 為 false)！請先至信箱點擊驗證信。</p>
             <p class="text-[11px] text-amber-200">溫馨提醒：註冊確認信有時會跑到「垃圾郵件匣」，請記得前往確認唷！</p>
+            <button type="button" onclick="simulateEmailVerifyClick('${email}')" class="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-black shadow transition">
+              ✉️ [預覽測試專用] 點此立即完成信箱驗證並直接登入
+            </button>
           </div>
         `, 'red');
         return;
@@ -2313,36 +2538,77 @@ service cloud.firestore {
       let member = saasMembers.find(m => m.email.toLowerCase() === email);
 
       // 若是創作者專屬信箱首次直接登入，自動建立最高權限創作者檔案
-      if (!member && email === CREATOR_ADMIN_EMAIL) {
+      if (email === CREATOR_ADMIN_EMAIL) {
+        const nowStr = new Date().toLocaleString('zh-TW', { hour12: false });
+        if (!member) {
+          member = {
+            email: CREATOR_ADMIN_EMAIL,
+            realName: 'TONY 楊文澤 老師',
+            identity: 'TONY老師學員',
+            role: 'admin',
+            isCreator: true,
+            emailVerified: true,
+            createdAt: nowStr,
+            createdTimestamp: Date.now(),
+            loginCount: 0,
+            passwordHash: password,
+            history: [`${nowStr} - 系統創作者最高權限帳號自動啟用`]
+          };
+          saasMembers.unshift(member);
+        }
+        member.role = 'admin';
+        member.isCreator = true;
+        member.emailVerified = true;
+        member.passwordHash = password;
+        saveMembersToLocalVault();
+        completeLoginSession(member, '系統創作者專屬登入');
+        return;
+      }
+
+      // 若透過真實 Firebase Email 驗證通過，但本機會員表尚無紀錄，自動補齊會員檔案並放行登入
+      if (!member && fbRes && fbRes.mode === 'firebase_real' && fbRes.success) {
         const nowStr = new Date().toLocaleString('zh-TW', { hour12: false });
         member = {
-          email: CREATOR_ADMIN_EMAIL,
-          realName: 'TONY 楊文澤 老師',
+          email,
+          realName: email.split('@')[0],
           identity: 'TONY老師學員',
-          role: 'admin',
-          isCreator: true,
+          role: 'user',
+          isCreator: false,
           emailVerified: true,
           createdAt: nowStr,
           createdTimestamp: Date.now(),
           loginCount: 0,
           passwordHash: password,
-          history: [`${nowStr} - 系統創作者最高權限帳號自動啟用`]
+          history: [`${nowStr} - 透過 Firebase Auth 驗證登入`]
         };
         saasMembers.unshift(member);
+        saveMembersToLocalVault();
       }
 
       if (!member) {
-        showAuthBanner(`❌ 找不到此信箱【${email}】的註冊紀錄，請先切換至「註冊新帳號」進行註冊！`, 'red');
+        showAuthBanner(`
+          <div class="space-y-2">
+            <p class="text-rose-300 font-black">❌ 找不到此信箱【${email}】的註冊紀錄！</p>
+            <div class="flex flex-wrap gap-2 pt-1">
+              <button type="button" onclick="switchAuthMode('register'); document.getElementById('regEmail').value='${email}';" class="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-black shadow transition">
+                ➕ 前往註冊此信箱
+              </button>
+              <button type="button" onclick="quickGoogleSignInAs('${email}', '${email.split('@')[0]}', 'TONY老師學員')" class="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-black shadow transition">
+                ⚡ 快速驗證並直接登入此帳號
+              </button>
+            </div>
+          </div>
+        `, 'red');
         return;
       }
 
-      if (fbRes.mode === 'simulated' && member.passwordHash && member.passwordHash !== password && email !== CREATOR_ADMIN_EMAIL) {
+      if (fbRes.mode === 'simulated' && member.passwordHash && member.passwordHash !== password) {
         showAuthBanner(`❌ 密碼輸入錯誤，請重新輸入或點擊「忘記密碼」！`, 'red');
         return;
       }
 
       // 嚴格 Double Opt-in 檢查：若 emailVerified === false 則紅字警告阻擋登入
-      if (!member.emailVerified && email !== CREATOR_ADMIN_EMAIL) {
+      if (!member.emailVerified) {
         showAuthBanner(`
           <div class="space-y-2">
             <p class="text-rose-300 font-black">🚫 阻擋登入：您的信箱 (${email}) 尚未通過驗證 (emailVerified = false)！請先至信箱點擊驗證連結。</p>
@@ -2353,13 +2619,6 @@ service cloud.firestore {
           </div>
         `, 'red');
         return;
-      }
-
-      // RBAC 強制規則：mindnodeai@gmail.com 永遠為 admin 且設定為系統創作者
-      if (email === CREATOR_ADMIN_EMAIL) {
-        member.role = 'admin';
-        member.isCreator = true;
-        member.emailVerified = true;
       }
 
       completeLoginSession(member, 'Email 驗證登入');
@@ -2463,18 +2722,25 @@ service cloud.firestore {
       }
 
       currentAuthUser = member;
+      saveMembersToLocalVault();
 
-      // 關鍵修復：登入瞬間，若該會員在雲端有專屬備份 (savedAppState)，與目前本地設定好的群組進行「智慧非破壞性合併」，絕不讓登入動作洗掉原有群組與人員！
+      // 關鍵修復：登入瞬間，將會員備份與本地金庫執行「無條件聯集合併」，絕不因時間戳記差異而抹除任何自訂群組！
       if (member.savedAppState && Array.isArray(member.savedAppState.pickerGroups)) {
-        const memberStateTs = Number(member.stateUpdatedAt) || 0;
-        const localTs = Number(appState.updatedAt) || 0;
-        appState.pickerGroups = smartMergePickerGroups(appState.pickerGroups, member.savedAppState.pickerGroups, localTs >= memberStateTs);
+        appState.pickerGroups = smartMergePickerGroups(appState.pickerGroups, member.savedAppState.pickerGroups);
       }
 
       ensurePickerGroupsIntegrity();
       appState.updatedAt = Date.now();
       try {
+        localStorage.setItem(VAULT_GROUPS_KEY, JSON.stringify(appState.pickerGroups));
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(appState));
+        localStorage.setItem(STORAGE_KEY_AUTH_SESSION, JSON.stringify({
+          email: member.email,
+          realName: member.realName,
+          identity: member.identity,
+          role: member.role,
+          isCreator: !!member.isCreator
+        }));
       } catch (e) {}
 
       if (window.SaaSBridge) {
@@ -2483,7 +2749,13 @@ service cloud.firestore {
         await window.SaaSBridge.syncEventState(currentEventName, appState, false);
       }
 
-      // 解除登入閘門，顯示主程式與對應 RBAC 按鈕
+      applyLoggedInUI(member);
+      renderAll();
+      renderAdminDashboard();
+      showToast(`歡迎回來，${member.realName}！(${member.role === 'admin' ? '最高管理員權限' : member.identity})`, 'success');
+    }
+
+    function applyLoggedInUI(member) {
       document.getElementById('authGateOverlay').classList.add('hidden');
       document.getElementById('headerUserBox').classList.remove('hidden');
       document.getElementById('headerUserBox').classList.add('flex');
@@ -2502,14 +2774,13 @@ service cloud.firestore {
         roleBadge.className = 'text-[10px] px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-bold';
         adminBtn.classList.add('hidden');
       }
-
-      renderAll();
-      renderAdminDashboard();
-      showToast(`歡迎回來，${member.realName}！(${member.role === 'admin' ? '最高管理員權限' : member.identity})`, 'success');
     }
 
     function handleUserLogout() {
       currentAuthUser = null;
+      try {
+        localStorage.removeItem(STORAGE_KEY_AUTH_SESSION);
+      } catch (e) {}
       document.getElementById('authGateOverlay').classList.remove('hidden');
       document.getElementById('headerUserBox').classList.add('hidden');
       document.getElementById('btnAdminPortal').classList.add('hidden');
@@ -2606,6 +2877,7 @@ service cloud.firestore {
       const nowStr = new Date().toLocaleString('zh-TW', { hour12: false });
       member.history = member.history || [];
       member.history.unshift(`${nowStr} - 管理員將權限調整為【${member.role.toUpperCase()}】`);
+      saveMembersToLocalVault();
       if (window.SaaSBridge) await window.SaaSBridge.saveMemberDoc(member);
       renderAdminDashboard();
       showToast(`已將「${member.realName}」權限更新為 ${member.role.toUpperCase()}`, 'success');
@@ -2618,6 +2890,7 @@ service cloud.firestore {
       }
       askConfirm(`確定要永久刪除會員【${email}】嗎？此操作無法復原。`, async () => {
         saasMembers = saasMembers.filter(m => m.email.toLowerCase() !== email.toLowerCase());
+        saveMembersToLocalVault();
         if (window.SaaSBridge) await window.SaaSBridge.removeMemberDoc(email);
         renderAdminDashboard();
         showToast(`已刪除會員：${email}`, 'info');
@@ -2640,7 +2913,7 @@ service cloud.firestore {
 
     // 5. 商業數據匯出：自動加上 \uFEFF BOM 確保 Excel 繁體中文不亂碼
     function exportMembersCSV() {
-      let csv = '\uFEFF真实姓名,電子郵件(Email),身分屬性,系統權限,是否為創作者,信箱驗證狀態,註冊時間,累計登入次數,最新歷史紀錄\n';
+      let csv = '\uFEFF真實姓名,電子郵件(Email),身分屬性,系統權限,是否為創作者,信箱驗證狀態,註冊時間,累計登入次數,最新歷史紀錄\n';
       saasMembers.forEach(m => {
         const latestLog = (m.history && m.history[0]) ? m.history[0].replace(/"/g, '""') : '';
         csv += `"${m.realName}","${m.email}","${m.identity}","${m.role.toUpperCase()}","${m.isCreator ? '系統創作者' : '一般'}","${m.emailVerified ? '已驗證' : '未驗證'}","${m.createdAt}",${m.loginCount || 0},"${latestLog}"\n`;
@@ -2819,6 +3092,16 @@ service cloud.firestore {
       showToast(soundEnabled ? '已開啟舞台音效與語音播報' : '已切換為靜音模式', 'info');
     }
 
+    function toggleFullScreenStage() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {
+          showToast('此預覽視窗受瀏覽器沙盒限制無法全螢幕，請於獨立分頁開啟', 'info');
+        });
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+    }
+
     // ==================== 3. Gemini 3.8 Flash 主力 AI 整合引擎 ====================
     async function callGeminiAPI(promptText, expectJson = false, inlineMedia = null, customSchema = null) {
       const apiKey = customGeminiKey || "";
@@ -2905,26 +3188,40 @@ service cloud.firestore {
       return pool.filter(p => !excludeWinners || !p.isWinner);
     }
 
+    function getAvailablePrizes() {
+      return (appState.prizes || []).filter(p => Number(p.remainQty) > 0);
+    }
+
     function handleStageGroupChange() {
       const sel = document.getElementById('stageGroupSelect');
       if (!sel) return;
       stageTargetGroupId = sel.value;
-      if (stageTargetGroupId !== 'ALL') {
-        appState.activePickerGroupId = stageTargetGroupId;
-        managerViewGroupId = stageTargetGroupId;
-      }
       updateStageMetrics();
-      renderAll();
       const grp = appState.pickerGroups.find(g => g.id === stageTargetGroupId);
-      showToast(stageTargetGroupId === 'ALL' ? '主舞台已切換為：抽取全部群組人員' : `主舞台已連動切換為抽取：【${grp ? grp.name : ''}】`, 'info');
+      showToast(stageTargetGroupId === 'ALL' ? '主舞台已切換為：全部群組聯合抽獎' : `主舞台已切換為抽取：【${grp ? grp.name : ''}】`, 'info');
     }
 
-    function getAvailablePrizes() {
-      return appState.prizes.filter(p => p.remainQty > 0);
-    }
-
-    // ==================== 5. 轉盤繪製與雙模動畫 ====================
+    // ==================== 5. 轉盤繪製與雙模動畫 (依獎品權重比例動態分配扇區面積) ====================
     const WHEEL_COLORS = ['#4f46e5', '#db2777', '#059669', '#d97706', '#7c3aed', '#0284c7', '#e11d48', '#65a30d'];
+
+    function getWheelSlicesGeometry(availPrizes) {
+      const totalWeight = availPrizes.reduce((s, p) => s + Math.max(1, Number(p.weight) || 1), 0);
+      let cursor = 0;
+      return availPrizes.map((prize, i) => {
+        const w = Math.max(1, Number(prize.weight) || 1);
+        const span = (w / totalWeight) * (Math.PI * 2);
+        const slice = {
+          prize,
+          index: i,
+          startOffset: cursor,
+          endOffset: cursor + span,
+          centerOffset: cursor + span / 2,
+          span
+        };
+        cursor += span;
+        return slice;
+      });
+    }
 
     function drawWheel() {
       const canvas = document.getElementById('wheelCanvas');
@@ -2949,10 +3246,10 @@ service cloud.firestore {
         return;
       }
 
-      const sliceAngle = (Math.PI * 2) / availPrizes.length;
-      availPrizes.forEach((prize, i) => {
-        const start = wheelAngle + i * sliceAngle;
-        const end = start + sliceAngle;
+      const slices = getWheelSlicesGeometry(availPrizes);
+      slices.forEach((s, i) => {
+        const start = wheelAngle + s.startOffset;
+        const end = wheelAngle + s.endOffset;
         ctx.beginPath();
         ctx.moveTo(cx, cy);
         ctx.arc(cx, cy, radius, start, end);
@@ -2965,12 +3262,12 @@ service cloud.firestore {
 
         ctx.save();
         ctx.translate(cx, cy);
-        ctx.rotate(start + sliceAngle / 2);
+        ctx.rotate(start + s.span / 2);
         ctx.textAlign = 'right';
         ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 14px "Noto Sans TC"';
-        const label = prize.name.length > 11 ? prize.name.slice(0, 11) + '…' : prize.name;
-        ctx.fillText(`${label} (${prize.remainQty})`, radius - 22, 5);
+        ctx.font = s.span < 0.38 ? 'bold 11px "Noto Sans TC"' : 'bold 13.5px "Noto Sans TC"';
+        const label = s.prize.name.length > 10 ? s.prize.name.slice(0, 10) + '…' : s.prize.name;
+        ctx.fillText(`${label} (${s.prize.remainQty})`, radius - 20, 4);
         ctx.restore();
       });
     }
@@ -3043,17 +3340,16 @@ service cloud.firestore {
 
     function animateWheelToPrize(availPrizes, targetPrize) {
       return new Promise(resolve => {
-        const idx = availPrizes.findIndex(p => p.id === targetPrize.id);
-        const sliceAngle = (Math.PI * 2) / availPrizes.length;
-        const targetSliceCenter = idx * sliceAngle + sliceAngle / 2;
-        const desiredEndAngle = (Math.PI * 1.5) - targetSliceCenter;
+        const slices = getWheelSlicesGeometry(availPrizes);
+        const targetSlice = slices.find(s => s.prize.id === targetPrize.id) || slices[0];
+        const desiredEndAngle = (Math.PI * 1.5) - targetSlice.centerOffset;
         const extraSpins = Math.PI * 2 * 6;
         const startAngle = wheelAngle % (Math.PI * 2);
         const totalDelta = extraSpins + ((desiredEndAngle - startAngle + Math.PI * 4) % (Math.PI * 2));
 
         const duration = 3600;
         const startTime = performance.now();
-        let lastTickSlice = -1;
+        let lastTickStep = -1;
 
         function frame(now) {
           const t = Math.min(1, (now - startTime) / duration);
@@ -3061,10 +3357,10 @@ service cloud.firestore {
           wheelAngle = startAngle + totalDelta * easeOut;
           drawWheel();
 
-          const currentSlice = Math.floor(((wheelAngle % (Math.PI * 2)) / sliceAngle));
-          if (currentSlice !== lastTickSlice) {
+          const currentTickStep = Math.floor(wheelAngle / (Math.PI / 6));
+          if (currentTickStep !== lastTickStep) {
             playTone(580, 0.03, 'triangle');
-            lastTickSlice = currentSlice;
+            lastTickStep = currentTickStep;
           }
 
           if (t < 1) requestAnimationFrame(frame);
@@ -3412,16 +3708,18 @@ service cloud.firestore {
       const rawName = inp ? inp.value.trim() : '';
       const groupName = rawName || `📚 新建班級/活動群組 (${appState.pickerGroups.length + 1})`;
       const newId = 'grp_' + Date.now();
-      appState.pickerGroups.push({
+      // 新建群組直接排在第 1 個位置 (unshift)，確保任何時候打開都在最上方！
+      appState.pickerGroups.unshift({
         id: newId,
         name: groupName,
         members: []
       });
       appState.activePickerGroupId = newId;
       managerViewGroupId = newId;
+      appState.managerViewGroupId = newId;
       syncCageBallsWithPool();
       saveState();
-      showToast(`已建立新群組：【${groupName}】，現在可直接新增或上傳該組名單！`, 'success');
+      showToast(`已建立新群組：【${groupName}】，並已置頂鎖定保存！`, 'success');
     }
 
     function renameGroupFromManager() {
@@ -3453,6 +3751,7 @@ service cloud.firestore {
       const grp = appState.pickerGroups.find(g => g.id === managerViewGroupId);
       if (!grp) return;
       askConfirm(`確定要刪除群組【${grp.name}】（內含 ${grp.members.length} 人）嗎？`, () => {
+        recordDeletedGroupId(grp.id);
         appState.pickerGroups = appState.pickerGroups.filter(g => g.id !== grp.id);
         appState.activePickerGroupId = appState.pickerGroups[0].id;
         managerViewGroupId = appState.pickerGroups[0].id;
@@ -3685,12 +3984,29 @@ service cloud.firestore {
       const rec = appState.records.find(r => r.id === recId);
       if (!rec || rec.status === 'forfeited') return;
       rec.status = 'forfeited';
+      // 1. 自動回補該獎品庫存 +1
       const prize = appState.prizes.find(p => p.id === rec.prizeId);
       if (prize && prize.remainQty < prize.totalQty) {
         prize.remainQty += 1;
       }
+      // 2. 同步更新該參加者的狀態
+      const foundWinner = findMemberAcrossGroups(rec.winnerId);
+      if (foundWinner && foundWinner.member) {
+        // 檢查該人員是否還有其他有效中獎紀錄，若無則還原為未中獎狀態
+        const hasOtherValidWin = appState.records.some(r => r.id !== recId && r.winnerId === rec.winnerId && r.status !== 'forfeited');
+        if (!hasOtherValidWin) {
+          foundWinner.member.isWinner = false;
+        }
+      }
       saveState();
       showToast(`已標記「${rec.winnerName}」棄權，並將【${rec.prizeName}】庫存 +1 回補至獎池！`, 'warn');
+    }
+
+    function reopenWinnerVoucher(recId) {
+      const rec = appState.records.find(r => r.id === recId);
+      if (!rec) return;
+      lastRecordId = rec.id;
+      showWinnerModal(rec);
     }
 
     function clearAllRecords() {
@@ -3799,16 +4115,19 @@ service cloud.firestore {
       const rawName = nameInp.value.trim();
       const groupName = rawName || `📚 新建課程/活動名單 (${appState.pickerGroups.length + 1})`;
       const newId = 'grp_' + Date.now();
-      appState.pickerGroups.push({
+      // 新建群組直接排在第 1 個位置 (unshift)
+      appState.pickerGroups.unshift({
         id: newId,
         name: groupName,
         members: []
       });
       appState.activePickerGroupId = newId;
+      managerViewGroupId = newId;
+      appState.managerViewGroupId = newId;
       nameInp.value = groupName;
       syncCageBallsWithPool();
       saveState();
-      showToast(`已建立新名單組別：「${groupName}」，現在可匯入名單！`, 'success');
+      showToast(`已建立新名單組別：「${groupName}」，並已置頂鎖定保存！`, 'success');
     }
 
     // 重新命名目前組別
@@ -3837,6 +4156,7 @@ service cloud.firestore {
         return;
       }
       askConfirm(`確定要刪除名單組別【${grp.name}】（共 ${grp.members.length} 人）嗎？`, () => {
+        recordDeletedGroupId(grp.id);
         appState.pickerGroups = appState.pickerGroups.filter(g => g.id !== grp.id);
         appState.activePickerGroupId = appState.pickerGroups[0].id;
         syncCageBallsWithPool();
@@ -4816,6 +5136,26 @@ service cloud.firestore {
           `<option value="ALL" ${managerViewGroupId === 'ALL' ? 'selected' : ''}>🌐 檢視全部群組總覽 (共 ${appState.participants.length} 人)</option>`;
       }
 
+      // 渲染「名單管理」頂部的視覺化群組快速書籤列 (Group Pills)，所有已建群組一目了然
+      const pillsBar = document.getElementById('managerGroupPillsBar');
+      if (pillsBar) {
+        pillsBar.innerHTML = appState.pickerGroups.map(g => {
+          const isSelected = managerViewGroupId === g.id;
+          const isCustom = !DEFAULT_GROUP_IDS.has(g.id);
+          return `
+            <button type="button" onclick="selectGroupByPill('${g.id}')" class="px-3 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border ${isSelected ? 'bg-indigo-600 text-white border-amber-400 shadow-lg scale-105' : 'bg-slate-900/90 hover:bg-slate-800 text-slate-300 border-slate-700'}">
+              ${isCustom ? '<span class="text-amber-300">★</span>' : ''}
+              <span>${g.name}</span>
+              <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono ${isSelected ? 'bg-amber-400 text-slate-950 font-black' : 'bg-slate-800 text-indigo-300'}">${(g.members || []).length}人</span>
+            </button>
+          `;
+        }).join('') + `
+          <button type="button" onclick="selectGroupByPill('ALL')" class="px-3 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border ${managerViewGroupId === 'ALL' ? 'bg-amber-500 text-slate-950 border-white shadow-lg' : 'bg-slate-900/90 hover:bg-slate-800 text-slate-400 border-slate-700'}">
+            <span>🌐 全部總覽 (${appState.participants.length}人)</span>
+          </button>
+        `;
+      }
+
       const formGrpSel = document.getElementById('pTargetGroupSelect');
       if (formGrpSel) {
         const currentEditingId = document.getElementById('editingParticipantId')?.value;
@@ -5063,14 +5403,24 @@ service cloud.firestore {
       document.getElementById('statRedeemed').textContent = `${redeemedCount} 筆`;
       document.getElementById('statPending').textContent = `${pendingCount} / ${forfeitedCount}`;
 
-      if (appState.records.length === 0) {
+      const recFilterKw = (document.getElementById('recordFilterInput')?.value || '').trim().toLowerCase();
+      const filteredRecords = recFilterKw
+        ? appState.records.filter(r =>
+            (r.winnerName || '').toLowerCase().includes(recFilterKw) ||
+            (r.winnerDept || '').toLowerCase().includes(recFilterKw) ||
+            (r.prizeName || '').toLowerCase().includes(recFilterKw) ||
+            (r.redeemCode || '').toLowerCase().includes(recFilterKw)
+          )
+        : appState.records;
+
+      if (filteredRecords.length === 0) {
         document.getElementById('recordsTableBody').innerHTML = `
           <tr>
-            <td colspan="7" class="py-8 text-center text-xs text-slate-500">目前尚無任何中獎與核銷紀錄</td>
+            <td colspan="7" class="py-8 text-center text-xs text-slate-500">目前尚無符合條件的中獎與核銷紀錄</td>
           </tr>
         `;
       } else {
-        document.getElementById('recordsTableBody').innerHTML = appState.records.map(r => `
+        document.getElementById('recordsTableBody').innerHTML = filteredRecords.map(r => `
           <tr class="hover:bg-slate-900/50 transition">
             <td class="py-3 px-2 text-xs text-slate-400 whitespace-nowrap">${r.timestamp}</td>
             <td class="py-3 px-2">
@@ -5090,6 +5440,9 @@ service cloud.firestore {
                     : '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300">⏳ 待領取</span>')}
             </td>
             <td class="py-3 px-2 text-right whitespace-nowrap space-x-1">
+              <button onclick="reopenWinnerVoucher('${r.id}')" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-700/60 transition" title="重新開啟此得獎者的 QR 兌換券彈窗">
+                憑證
+              </button>
               ${r.status !== 'forfeited' ? `
                 <button onclick="toggleRedeemRecord('${r.id}')" class="px-2.5 py-1 rounded-lg text-xs font-bold transition ${r.status === 'redeemed' ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-emerald-600 text-white hover:bg-emerald-500'}">
                   ${r.status === 'redeemed' ? '取消核銷' : '核銷領獎'}
@@ -5116,6 +5469,19 @@ service cloud.firestore {
 
     function closeSettingsModal() {
       document.getElementById('settingsModal').classList.add('hidden');
+    }
+
+    function selectGroupByPill(groupId) {
+      managerViewGroupId = groupId;
+      appState.managerViewGroupId = groupId;
+      if (groupId !== 'ALL') {
+        appState.activePickerGroupId = groupId;
+        const grp = appState.pickerGroups.find(g => g.id === groupId);
+        const nameInp = document.getElementById('managerGroupNameInput');
+        if (nameInp && grp) nameInp.value = grp.name;
+      }
+      syncCageBallsWithPool();
+      renderAll();
     }
 
     async function saveSystemSettings() {
@@ -5146,6 +5512,8 @@ service cloud.firestore {
       appState.updatedAt = Date.now();
       try {
         localStorage.removeItem(LOCAL_STORAGE_KEY);
+        localStorage.removeItem(VAULT_GROUPS_KEY);
+        localStorage.removeItem(DELETED_GROUP_IDS_KEY);
       } catch (e) {}
       saveState();
       closeSettingsModal();
@@ -5156,16 +5524,50 @@ service cloud.firestore {
       if (window.SaaSBridge) {
         const ok = await window.SaaSBridge.init(customFirebaseCfg, currentEventName);
         if (ok) {
-          // 若雲端曾存有舊測試帳號則主動清理，並確保系統創作者預設寫入雲端
+          // 僅清理舊測試帳號，不在初始拉取前覆寫創作者的 savedAppState，防止蓋掉雲端群組備份！
           await window.SaaSBridge.removeMemberDoc('vip.student@tonystudio.tw');
           await window.SaaSBridge.removeMemberDoc('guest.marketing@brand.com');
-          const creator = saasMembers.find(m => m.email.toLowerCase() === CREATOR_ADMIN_EMAIL);
-          if (creator) await window.SaaSBridge.saveMemberDoc(creator);
         }
       }
     };
 
     window.onload = function () {
+      // 自動恢復上次登入的會員會話，避免重新整理網頁後需要重複登入
+      try {
+        const savedSessionRaw = localStorage.getItem(STORAGE_KEY_AUTH_SESSION);
+        if (savedSessionRaw) {
+          const savedSession = JSON.parse(savedSessionRaw);
+          if (savedSession && savedSession.email) {
+            const matched = saasMembers.find(m => m.email.toLowerCase() === savedSession.email.toLowerCase()) || savedSession;
+            currentAuthUser = matched;
+            applyLoggedInUI(matched);
+          }
+        }
+      } catch (e) {}
+
+      // 支援空白鍵 (Space) 在舞台或搖珠頁快速啟動抽獎（焦點不在輸入框且無開啟彈窗時）
+      window.addEventListener('keydown', (ev) => {
+        if (ev.code !== 'Space') return;
+        const activeTag = (document.activeElement?.tagName || '').toUpperCase();
+        if (['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(activeTag)) return;
+        const anyModalOpen = ['authGateOverlay', 'winnerModal', 'settingsModal', 'adminDashboardModal', 'tonyProfileModal', 'confirmModal']
+          .some(id => {
+            const el = document.getElementById(id);
+            return el && !el.classList.contains('hidden');
+          });
+        if (anyModalOpen) return;
+
+        const stageVisible = !document.getElementById('view-stage').classList.contains('hidden');
+        const pickerVisible = !document.getElementById('view-picker').classList.contains('hidden');
+        if (stageVisible) {
+          ev.preventDefault();
+          triggerDraw();
+        } else if (pickerVisible) {
+          ev.preventDefault();
+          triggerNamePicker();
+        }
+      });
+
       renderAll();
       renderAdminDashboard();
     };
