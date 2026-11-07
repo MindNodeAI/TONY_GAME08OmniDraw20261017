@@ -1270,6 +1270,21 @@ service cloud.firestore {
           </div>
         </div>
 
+        <!-- 新增：跨網域部署專用打包器 (將目前所有群組與 Firebase Config 直接焊死進 HTML) -->
+        <div class="p-4 rounded-2xl bg-amber-500/10 border-2 border-amber-500/50 space-y-2.5">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p class="text-xs font-black text-amber-300 flex items-center gap-1.5">
+                <i data-lucide="package-check" class="w-4 h-4"></i> 5. 跨網域部署專用：打包內建群組與雲端設定之 HTML
+              </p>
+              <p class="text-[11px] text-slate-300 mt-0.5">為什麼部署後的網頁看不到這裡建的群組？因為不同網址的本機記憶體是分開的！點擊下方按鈕，會將您<strong>目前建好的所有群組、人員與上方 Firebase Config 直接焊死寫入 HTML 檔案中</strong>，部署上去打開第一秒就全部都在！</p>
+            </div>
+            <button type="button" onclick="exportDeployableSelfContainedHTML()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 text-slate-950 font-black text-xs shadow-lg flex items-center gap-1.5 transition shrink-0">
+              <i data-lucide="download" class="w-4 h-4"></i> 下載部署專用完整 HTML
+            </button>
+          </div>
+        </div>
+
         <div class="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center justify-between">
           <div>
             <p class="text-xs font-bold text-slate-200">還原系統預設展示資料</p>
@@ -1672,6 +1687,36 @@ service cloud.firestore {
         }, (err) => console.warn("Members listener notice:", err));
       },
 
+      // 關鍵防覆蓋機制：在外部部署網頁按下登入時，強制先從雲端拉取最新群組與創作者備份，絕不拿新網頁的預設值覆蓋雲端！
+      async pullLatestCloudDataBeforeLogin(eventId, userEmail) {
+        if (!this.isCloudReady || !this.db) return null;
+        await this.ensureAuthSession();
+        const cleanEventId = (eventId || 'tonystudio-2026-gala').trim();
+        const pulledStates = [];
+
+        try {
+          const topSnap = await getDoc(doc(this.db, 'omnidraw_events', cleanEventId));
+          if (topSnap.exists()) pulledStates.push(topSnap.data());
+        } catch (e) {}
+
+        try {
+          const priSnap = await getDoc(this.getEventDocRef(cleanEventId));
+          if (priSnap.exists()) pulledStates.push(priSnap.data());
+        } catch (e) {}
+
+        if (userEmail) {
+          try {
+            const docId = userEmail.toLowerCase().replace(/[^a-z0-9]/g, '_');
+            const mSnap = await getDoc(doc(this.getMembersColRef(), docId));
+            if (mSnap.exists() && mSnap.data().savedAppState) {
+              pulledStates.push(mSnap.data().savedAppState);
+            }
+          } catch (e) {}
+        }
+
+        return pulledStates;
+      },
+
       async syncEventState(eventId, stateObj, showSuccessToast = false) {
         if (!this.isCloudReady || !this.db) return false;
         await this.ensureAuthSession();
@@ -1858,14 +1903,18 @@ service cloud.firestore {
     const STORAGE_KEY_AUTH_SESSION = 'OMNIDRAW_AUTH_SESSION_V1';
     const STORAGE_KEY_MEMBERS_VAULT = 'OMNIDRAW_MEMBERS_VAULT_V1';
 
+    // 部署專用內建參數槽 (當使用「下載部署專用完整 HTML」時，會自動將您的 Firebase Config 與群組焊死於此)
+    const EMBEDDED_DEPLOY_FIREBASE_CONFIG = "";
+    const EMBEDDED_DEPLOY_EVENT_ID = "";
+
     let soundEnabled = true;
     let currentStageMode = 'wheel'; // 'wheel' | 'slot'
     let isDrawing = false;
     let wheelAngle = 0;
     let lastRecordId = null;
     let customGeminiKey = localStorage.getItem(STORAGE_KEY_GEMINI) || '';
-    let customFirebaseCfg = localStorage.getItem(STORAGE_KEY_FB_CFG) || '';
-    let currentEventName = localStorage.getItem(STORAGE_KEY_EVENT_ID) || 'tonystudio-2026-gala';
+    let customFirebaseCfg = localStorage.getItem(STORAGE_KEY_FB_CFG) || EMBEDDED_DEPLOY_FIREBASE_CONFIG || '';
+    let currentEventName = localStorage.getItem(STORAGE_KEY_EVENT_ID) || EMBEDDED_DEPLOY_EVENT_ID || 'tonystudio-2026-gala';
 
     // 目前登入之 SaaS 會員與全體會員清單 (支援雲端 Firestore 即時同步，僅保留系統創作者預設帳號)
     let currentAuthUser = null;
@@ -2724,7 +2773,19 @@ service cloud.firestore {
       currentAuthUser = member;
       saveMembersToLocalVault();
 
-      // 關鍵修復：登入瞬間，將會員備份與本地金庫執行「無條件聯集合併」，絕不因時間戳記差異而抹除任何自訂群組！
+      // 關鍵防覆蓋修復：在部署網頁登入時，必須「先從雲端拉回 (Pull) 您已建立的所有群組」，合併後才允許存檔！
+      if (window.SaaSBridge && window.SaaSBridge.isCloudReady) {
+        const cloudStates = await window.SaaSBridge.pullLatestCloudDataBeforeLogin(currentEventName, member.email);
+        if (Array.isArray(cloudStates) && cloudStates.length > 0) {
+          cloudStates.forEach(cState => {
+            if (cState && window.onCloudStateReceived) {
+              window.onCloudStateReceived(cState, true);
+            }
+          });
+        }
+      }
+
+      // 將會員檔案內的備份與本地金庫執行「無條件聯集合併」，絕不抹除任何自訂群組！
       if (member.savedAppState && Array.isArray(member.savedAppState.pickerGroups)) {
         appState.pickerGroups = smartMergePickerGroups(appState.pickerGroups, member.savedAppState.pickerGroups);
       }
@@ -2743,16 +2804,16 @@ service cloud.firestore {
         }));
       } catch (e) {}
 
-      if (window.SaaSBridge) {
+      if (window.SaaSBridge && window.SaaSBridge.isCloudReady) {
+        // 只有在確定完成雲端拉取與聯集合併後，才將合併後的完整群組寫回雲端
         await window.SaaSBridge.saveMemberDoc(member);
-        // 登入成功後立即將合併後的最新群組與人員強制寫入雲端 Firestore
         await window.SaaSBridge.syncEventState(currentEventName, appState, false);
       }
 
       applyLoggedInUI(member);
       renderAll();
       renderAdminDashboard();
-      showToast(`歡迎回來，${member.realName}！(${member.role === 'admin' ? '最高管理員權限' : member.identity})`, 'success');
+      showToast(`歡迎回來，${member.realName}！已同步載入 ${appState.pickerGroups.length} 個名單群組。`, 'success');
     }
 
     function applyLoggedInUI(member) {
@@ -5505,6 +5566,52 @@ service cloud.firestore {
       }
       closeSettingsModal();
       showToast('系統、Gemini AI 與 Firebase 雲端設定已永久保存並套用！', 'success');
+    }
+
+    // 一鍵打包下載「已焊死目前所有群組名單 + Firebase Config」之部署專用單一 HTML 檔
+    function exportDeployableSelfContainedHTML() {
+      ensurePickerGroupsIntegrity();
+      const fbInput = document.getElementById('inputFirebaseConfig');
+      const evInput = document.getElementById('inputEventId');
+      const cfgToEmbed = (fbInput ? fbInput.value.trim() : '') || customFirebaseCfg || '';
+      const evToEmbed = (evInput ? evInput.value.trim() : '') || currentEventName || 'tonystudio-2026-gala';
+
+      let fullHtml = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+
+      // 1. 將目前的 DEFAULT_STATE 替換為包含您現在所有自訂群組、人員與獎品的最新狀態
+      const currentSnapshotState = {
+        prizes: appState.prizes,
+        participants: appState.participants,
+        records: appState.records,
+        pickerSource: appState.pickerSource || 'custom',
+        activePickerGroupId: appState.activePickerGroupId,
+        pickerGroups: appState.pickerGroups,
+        pickerCustomList: appState.pickerCustomList || [],
+        pickerHistory: appState.pickerHistory || []
+      };
+
+      fullHtml = fullHtml.replace(
+        /const DEFAULT_STATE = \{[\s\S]*?\n    \};/,
+        `const DEFAULT_STATE = ${JSON.stringify(currentSnapshotState, null, 2)};`
+      );
+
+      // 2. 將您的 Firebase Config 與 Event ID 直接寫入常數，部署到任何網址都能第一秒自動連上您的雲端
+      fullHtml = fullHtml.replace(
+        /const EMBEDDED_DEPLOY_FIREBASE_CONFIG = ".*?";/,
+        `const EMBEDDED_DEPLOY_FIREBASE_CONFIG = ${JSON.stringify(cfgToEmbed)};`
+      );
+      fullHtml = fullHtml.replace(
+        /const EMBEDDED_DEPLOY_EVENT_ID = ".*?";/,
+        `const EMBEDDED_DEPLOY_EVENT_ID = ${JSON.stringify(evToEmbed)};`
+      );
+
+      const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `index.html`;
+      a.click();
+      showToast('已下載部署專用 index.html（已內建目前所有群組與雲端設定）！', 'success');
     }
 
     function resetToDefaultDemo() {
