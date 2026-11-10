@@ -1125,17 +1125,17 @@
               <span id="pickerFileParseStatusText">正在智慧解析檔案中之學號與姓名...</span>
             </div>
 
-            <textarea id="batchPasteInput" rows="4" placeholder="支援格式：學號, 姓名, 部門/組別, 加權倍率&#10;D112001, 王小明, 第一組, 1&#10;D112002, 陳雅婷, 第二組, 2&#10;張志豪, 品牌顧問處, 1" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-emerald-500"></textarea>
-            <div class="flex items-center gap-2">
-              <button onclick="importBatchParticipants(false)" class="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-white text-xs transition">➕ 批次加入目前群組</button>
-              <button onclick="importBatchParticipants(true)" class="px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 font-bold text-slate-300 text-xs border border-slate-700 transition" title="清空目前群組並以此批名單覆蓋">覆蓋此組</button>
+            <!-- 欄位自動對應結果與手動微調入口 -->
+            <div id="rosterMappingBanner" class="hidden rounded-xl bg-slate-900/95 border border-emerald-500/40 p-3 text-xs space-y-2">
+              <div class="flex items-start justify-between gap-2">
+                <span id="rosterMappingSummaryText" class="text-emerald-300 font-bold leading-relaxed">✅ 已自動對應欄位</span>
+                <button type="button" onclick="openColumnMapperModal()" class="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-[11px] font-black shrink-0 flex items-center gap-1 transition">
+                  <i data-lucide="sliders-horizontal" class="w-3 h-3"></i> 手動指定欄位
+                </button>
+              </div>
             </div>
-          </div>
-        </div>
 
-        <!-- 右側：群組人員與學號管理大總表 (8 cols) -->
-        <div class="lg:col-span-8 glass-panel rounded-2xl p-5 space-y-4">
-          <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+            <textarea id="batchPasteInput" rows="4" placeholder="支援直接從 Excel 複製貼上（自動辨識「姓名 / 學號 / 系級部門」欄位）&#10;例如：&#10;序號, 系級, 學號, 姓名&#10;1, 行銷四A, D112001, 王小明" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-emerald-500"></textarea>
             <div>
               <div class="flex items-center gap-2">
                 <h3 class="font-black text-base text-white">
@@ -1680,6 +1680,76 @@ service cloud.firestore {
         <button onclick="executeNewSessionReset()" class="py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 text-xs font-black shadow-lg flex items-center justify-center gap-1.5 transition">
           <i data-lucide="check-circle-2" class="w-4 h-4"></i> 確認開啟全新一局
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 彈窗 8：智慧名單欄位對應設定 Modal ==================== -->
+  <div id="columnMapperModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="glass-panel max-w-2xl w-full rounded-3xl p-6 border-2 border-amber-500/60 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto animate-pop">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center gap-2.5">
+          <div class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-300">
+            <i data-lucide="table-properties" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-black text-base sm:text-lg text-white">指定匯入名單欄位對應</h3>
+            <p class="text-[11px] text-slate-400">請確認或選擇檔案中哪一欄是「姓名」、「學號/編號」與「系級/部門/組別」</p>
+          </div>
+        </div>
+        <button onclick="closeColumnMapperModal()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+        <div>
+          <label class="text-slate-300 font-bold block mb-1">資料起始列 (略過上方標題/說明列)</label>
+          <select id="mapperStartRowSelect" onchange="updateColumnMapperPreview()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white font-bold focus:outline-none focus:border-amber-400"></select>
+        </div>
+        <div>
+          <label class="text-amber-300 font-black block mb-1">👑 姓名欄位 *(必選)</label>
+          <select id="mapperNameColSelect" onchange="updateColumnMapperPreview()" class="w-full bg-slate-900 border-2 border-amber-500/70 rounded-xl px-3 py-2 text-amber-300 font-black focus:outline-none focus:border-amber-400"></select>
+        </div>
+        <div>
+          <label class="text-indigo-300 font-bold block mb-1">🆔 學號 / 員工編號欄位 (選填)</label>
+          <select id="mapperIdColSelect" onchange="updateColumnMapperPreview()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-400"></select>
+        </div>
+        <div>
+          <label class="text-emerald-300 font-bold block mb-1">🏷️ 系級 / 部門 / 組別欄位 (選填)</label>
+          <select id="mapperTagColSelect" onchange="updateColumnMapperPreview()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-400"></select>
+        </div>
+      </div>
+
+      <!-- 即時預覽前 5 筆解析結果 -->
+      <div class="bg-slate-950/90 border border-slate-800 rounded-2xl p-3.5 space-y-2">
+        <div class="flex items-center justify-between text-xs">
+          <span class="font-bold text-slate-300">🔍 匯入結果即時預覽 (前 5 筆)</span>
+          <span id="mapperValidCountBadge" class="text-emerald-400 font-black">預計可匯入 0 人</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="border-b border-slate-800 text-slate-400">
+                <th class="py-1.5 px-2">學號 / 編號</th>
+                <th class="py-1.5 px-2 text-amber-300">姓名</th>
+                <th class="py-1.5 px-2">系級 / 部門 / 組別</th>
+              </tr>
+            </thead>
+            <tbody id="mapperPreviewTbody" class="divide-y divide-slate-800/60"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-800">
+        <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+          <input type="checkbox" id="mapperReplaceGroupChk" class="w-4 h-4 accent-rose-500 rounded">
+          <span>清空目前群組舊名單並以此批覆蓋</span>
+        </label>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="closeColumnMapperModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition">取消</button>
+          <button type="button" onclick="applyManualColumnMapping()" class="px-5 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 text-slate-950 text-xs font-black shadow-lg flex items-center gap-1.5 transition">
+            <i data-lucide="check-circle-2" class="w-4 h-4"></i> 確認套用欄位並匯入
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -4288,56 +4358,383 @@ service cloud.firestore {
       saveState(true);
     }
 
-    function importBatchParticipants(replaceAll = false) {
-      const raw = document.getElementById('batchPasteInput').value.trim();
-      if (!raw) {
-        showToast('請先在文字框貼上名單內容或上傳檔案', 'error');
-        return;
+    // ==================== 智慧名單欄位辨識與多格式匯入引擎 ====================
+    let lastUploadedRosterState = {
+      rows2D: [],
+      targetGroupId: '',
+      lastBatchId: '',
+      mapping: null
+    };
+
+    // 清理人名（自動移除中文姓名中間的全形/半形空白，如「王　明」->「王明」，並清除單欄清單常見的前綴編號「1. 王小明」）
+    function cleanExtractedPersonName(rawStr, stripListPrefix = false) {
+      let s = String(rawStr || '').trim();
+      if (!s) return '';
+      if (stripListPrefix) {
+        s = s.replace(/^\d{1,3}[\.\、\)\）\-_:\s]+/, '').trim();
       }
+      s = s.replace(/^[\*\#•·▪▫\-\s]+/, '').trim();
+      // 移除中文字與中文字之間的空白（教務系統常見兩字姓名補全形空白）
+      let prev = '';
+      while (prev !== s) {
+        prev = s;
+        s = s.replace(/([\u4e00-\u9fa5])[\s\u3000]+([\u4e00-\u9fa5])/g, '$1$2');
+      }
+      return s.trim();
+    }
+
+    // 將 CSV / TSV / 貼上文字轉為保留空白欄位的標準二維陣列 rows2D
+    function parseDelimitedTextTo2D(rawText) {
+      const lines = String(rawText || '').replace(/^\uFEFF/, '').split(/\r?\n/);
+      const nonEmptyLines = lines.filter(l => l.trim().length > 0);
+      if (nonEmptyLines.length === 0) return [];
+
+      // 1. 優先檢查是否為 Tab 分隔 (直接從 Excel / Google 試算表 / Word 表格複製貼上)
+      const tabLines = nonEmptyLines.slice(0, 15).filter(l => l.includes('\t')).length;
+      if (tabLines >= Math.min(2, nonEmptyLines.length) || (nonEmptyLines.length === 1 && nonEmptyLines[0].includes('\t'))) {
+        return nonEmptyLines.map(l => l.split('\t').map(c => c.trim()));
+      }
+
+      // 2. 檢查是否為逗號分隔 (標準 CSV，保留雙引號與空白格位置，絕不因空值導致欄位左移！)
+      const commaLines = nonEmptyLines.slice(0, 15).filter(l => l.includes(',') || l.includes('，')).length;
+      if (commaLines > 0) {
+        return nonEmptyLines.map(line => {
+          const normLine = line.includes(',') ? line : line.replace(/，/g, ',');
+          const cols = [];
+          let cur = '';
+          let inQuotes = false;
+          for (let i = 0; i < normLine.length; i++) {
+            const ch = normLine[i];
+            if (ch === '"') {
+              if (inQuotes && normLine[i + 1] === '"') {
+                cur += '"';
+                i++;
+              } else {
+                inQuotes = !inQuotes;
+              }
+            } else if (ch === ',' && !inQuotes) {
+              cols.push(cur.trim());
+              cur = '';
+            } else {
+              cur += ch;
+            }
+          }
+          cols.push(cur.trim());
+          return cols;
+        });
+      }
+
+      // 3. 檢查是否為空白對齊的多欄文字 (例如從 PDF 或純文字貼上「1 D11240101 王小明 行銷四A」)
+      const sampleTokens = nonEmptyLines.slice(0, 12).map(l => l.trim().split(/\s+/));
+      const multiColCount = sampleTokens.filter(t => t.length >= 2).length;
+      if (multiColCount >= Math.ceil(sampleTokens.length * 0.6)) {
+        const allPureEnglishNames = sampleTokens
+          .filter(t => t.length >= 2)
+          .every(t => t.length <= 3 && t.every(w => /^[A-Za-z\.\-']+$/.test(w)));
+        if (!allPureEnglishNames) {
+          return nonEmptyLines.map(l => l.trim().split(/\s+/));
+        }
+      }
+
+      return nonEmptyLines.map(l => [l.trim()]);
+    }
+
+    // 智慧分析二維表格：自動在前 15 列尋找標題列，並用「標題語意 + 欄位內容統計特徵」精準定位【姓名】、【學號】、【系級部門】、【加權】
+    function smartAnalyzeRoster2D(rows2D) {
+      if (!Array.isArray(rows2D) || rows2D.length === 0) {
+        return { startDataRow: 0, headerRowIdx: -1, nameCol: 0, idCol: -1, tagCol: -1, bonusCol: -1, confidence: 'low', colLabels: [] };
+      }
+
+      const maxCols = rows2D.reduce((m, r) => Math.max(m, Array.isArray(r) ? r.length : 0), 0);
+      if (maxCols <= 1) {
+        // 單欄名單：檢查第 0 列是否為標題「姓名 / Name」
+        const firstClean = String(rows2D[0]?.[0] || '').replace(/\s+/g, '').toLowerCase();
+        const isHdr = /^(姓名|學生姓名|學員姓名|參加者|名單|name|participant)$/.test(firstClean);
+        return {
+          startDataRow: isHdr ? 1 : 0,
+          headerRowIdx: isHdr ? 0 : -1,
+          nameCol: 0,
+          idCol: -1,
+          tagCol: -1,
+          bonusCol: -1,
+          confidence: 'high',
+          colLabels: [isHdr ? rows2D[0][0] : '第 1 欄']
+        };
+      }
+
+      // 輔助：清洗標題儲存格空白與符號（讓「姓  名」、「學\n號」也能 100% 命中）
+      const normHdr = (v) => String(v || '').replace(/[\s\u3000_\-—:：*()（）\[\]【】?？*#\.]/g, '').toLowerCase();
+
+      const isOrgTitleNotPerson = (h) => /(公司|單位|部門|組織|學校|科系|班級|課程|科目|活動|專案|獎品|獎項|群組|小組|團隊|檔案|系統|職稱|職務|帳號)(名稱|名)$/.test(h);
+      const matchNameHdr = (h) => {
+        if (!h || isOrgTitleNotPerson(h)) return 0;
+        if (/^(姓名|中文姓名|本名|真實姓名|學生姓名|學員姓名|參加者姓名|員工姓名|會員姓名|人員姓名|得獎人姓名|與會者姓名|報名者姓名|fullname|chinesename|studentname|employeename|membername|participantname|name)$/.test(h)) return 10;
+        if (h.includes('姓名') || h === '學生' || h === '學員' || h === '參加者' || h === '與會者' || h === '報名者' || h === '得獎人') return 8;
+        return 0;
+      };
+      const matchIdHdr = (h) => {
+        if (!h) return 0;
+        if (/^(學號|學生學號|員工編號|工號|員編|學員編號|會員編號|人事編號|證號|入場編號|抽獎編號|studentid|studentno|empid|employeeno|staffid|memberid)$/.test(h)) return 10;
+        if (/^(id|編號|代碼)$/.test(h)) return 5;
+        return 0;
+      };
+      const matchSerialHdr = (h) => /^(序號|序|項次|座號|流水號|編號序|no|num|seq|index)$/.test(h);
+      const matchTagHdr = (h) => {
+        if (!h) return 0;
+        if (/^(組別|分組|小組|小隊|桌次|桌號|部門|所屬部門|單位|服務單位|處室|系級|班級|開課班級|就讀班級|科系|系所|學院|年級|公司|公司名稱|單位名稱|部門名稱|職稱|group|team|dept|department|class|major|unit|company|division)$/.test(h)) return 9;
+        return 0;
+      };
+      const matchBonusHdr = (h) => /^(加權|個人加權|加權倍率|權重|倍率|籤數|bonus|weight)$/.test(h);
+      const matchOtherKnownHdr = (h) => /^(性別|信箱|電子郵件|email|mail|電話|手機|聯絡電話|行動電話|phone|mobile|tel|時間戳記|報名時間|timestamp|備註|說明|簽到|出席|狀態|成績|分數|地址|gender|sex|note|remark)$/.test(h);
+
+      // 步驟 1：掃描前 15 列，找出最可能的標題列
+      let bestHeaderRow = -1;
+      let bestHeaderScore = 0;
+      const scanLimit = Math.min(15, rows2D.length);
+
+      for (let r = 0; r < scanLimit; r++) {
+        const row = rows2D[r] || [];
+        let rowScore = 0;
+        let hitCols = 0;
+        let hasNameHdr = false;
+
+        for (let c = 0; c < row.length; c++) {
+          const h = normHdr(row[c]);
+          if (!h || h.length > 18) continue;
+          const nScore = matchNameHdr(h);
+          const iScore = matchIdHdr(h);
+          const tScore = matchTagHdr(h);
+          if (nScore > 0) { rowScore += nScore; hitCols++; hasNameHdr = true; }
+          else if (iScore > 0) { rowScore += iScore; hitCols++; }
+          else if (tScore > 0) { rowScore += tScore; hitCols++; }
+          else if (matchSerialHdr(h)) { rowScore += 5; hitCols++; }
+          else if (matchBonusHdr(h)) { rowScore += 6; hitCols++; }
+          else if (matchOtherKnownHdr(h)) { rowScore += 4; hitCols++; }
+        }
+
+        if ((hasNameHdr || hitCols >= 2) && rowScore > bestHeaderScore && r < rows2D.length - 1) {
+          bestHeaderScore = rowScore;
+          bestHeaderRow = r;
+        }
+      }
+
+      let nameCol = -1;
+      let idCol = -1;
+      let tagCol = -1;
+      let bonusCol = -1;
+      const serialCols = new Set();
+      const ignoredCols = new Set();
+
+      if (bestHeaderRow >= 0) {
+        const hdrRow = rows2D[bestHeaderRow] || [];
+        let bestNameS = 0, bestIdS = 0, bestTagS = 0;
+        for (let c = 0; c < maxCols; c++) {
+          const h = normHdr(hdrRow[c]);
+          if (!h) continue;
+          if (matchSerialHdr(h)) { serialCols.add(c); continue; }
+          if (matchOtherKnownHdr(h)) { ignoredCols.add(c); continue; }
+          if (matchBonusHdr(h) && bonusCol === -1) { bonusCol = c; continue; }
+
+          const ns = matchNameHdr(h);
+          if (ns > bestNameS) { bestNameS = ns; nameCol = c; }
+
+          const is = matchIdHdr(h);
+          if (is > bestIdS && c !== nameCol) { bestIdS = is; idCol = c; }
+
+          const ts = matchTagHdr(h);
+          if (ts > bestTagS && c !== nameCol && c !== idCol) { bestTagS = ts; tagCol = c; }
+        }
+      }
+
+      const startDataRow = bestHeaderRow >= 0 ? bestHeaderRow + 1 : 0;
+      const sampleRows = rows2D.slice(startDataRow, startDataRow + 60).filter(r => Array.isArray(r) && r.some(cell => String(cell || '').trim() !== ''));
+
+      // 步驟 2：針對尚未對應出的欄位（特別是無標題列、或標題異常導致沒抓到 nameCol），進行欄位資料特徵剖析！
+      if (sampleRows.length > 0 && (nameCol === -1 || idCol === -1 || tagCol === -1)) {
+        const colStats = [];
+        for (let c = 0; c < maxCols; c++) {
+          const vals = sampleRows.map(r => String(r[c] || '').trim()).filter(Boolean);
+          if (vals.length === 0) {
+            colStats.push({ c, empty: true, nameScore: -999, idScore: -999, tagScore: -999, bonusScore: -999 });
+            continue;
+          }
+          const uniqueSet = new Set(vals.map(v => v.toLowerCase()));
+          const uniqueRatio = uniqueSet.size / vals.length;
+
+          let pureSmallIntCnt = 0;
+          let bonusRangeIntCnt = 0;
+          let alnumIdCnt = 0;
+          let emailPhoneDateCnt = 0;
+          let genderStatusCnt = 0;
+          let orgClassSuffixCnt = 0;
+          let cjkPersonNameCnt = 0;
+          let engPersonNameCnt = 0;
+
+          vals.forEach(v => {
+            const vCleanCjk = cleanExtractedPersonName(v, false);
+            if (/^\d{1,4}$/.test(v)) {
+              pureSmallIntCnt++;
+              const n = parseInt(v, 10);
+              if (n >= 1 && n <= 10) bonusRangeIntCnt++;
+            } else if (/@|https?:\/\/|^\d{4}[\/\-]\d{1,2}|^09\d{2}[\-\s]?\d{3}[\-\s]?\d{3}$|^\+?\d[\d\-\s]{7,}$/.test(v)) {
+              emailPhoneDateCnt++;
+            } else if (/^(男|女|M|F|先生|小姐|是|否|出席|缺席|已報到|未報到)$/i.test(v)) {
+              genderStatusCnt++;
+            } else if (/^[A-Za-z0-9\-_]{4,20}$/.test(v) && /\d/.test(v)) {
+              alnumIdCnt++;
+            } else {
+              const isOrgOrClass = /(學系|研究所|學院|科系|班級|[一二三四五1-5][年級甲乙丙丁ABCD班]|部門?|處|室|中心|公司|集團|協會|^第[一二三四五六七八九十\d]+[組隊桌班梯])$/.test(vCleanCjk);
+              if (isOrgOrClass) orgClassSuffixCnt++;
+
+              if (/^[\u4e00-\u9fa5·•]{2,5}$/.test(vCleanCjk) && !isOrgOrClass && !/^(合計|總計|小計|備註|說明|無|待定|測試)$/.test(vCleanCjk)) {
+                cjkPersonNameCnt++;
+              } else if (/^[A-Za-z][A-Za-z\s\.\-']{1,28}$/.test(v) && !/\d/.test(v)) {
+                engPersonNameCnt++;
+              }
+            }
+          });
+
+          const total = vals.length;
+          const personRatio = (cjkPersonNameCnt * 1.15 + engPersonNameCnt * 0.9) / total;
+          const idRatio = alnumIdCnt / total;
+          const serialRatio = pureSmallIntCnt / total;
+          const orgRatio = orgClassSuffixCnt / total;
+          const noiseRatio = (emailPhoneDateCnt + genderStatusCnt) / total;
+
+          if (serialRatio >= 0.8 && uniqueRatio >= 0.8) {
+            serialCols.add(c);
+          }
+
+          let nameScore = personRatio * 100
+            + (vals.length >= 3 ? uniqueRatio * 30 : 10)
+            - serialRatio * 150
+            - idRatio * 140
+            - noiseRatio * 150
+            - orgRatio * 75
+            - (vals.length >= 5 && uniqueRatio < 0.45 ? 55 : 0);
+
+          let idScore = idRatio * 100 + (vals.length >= 3 ? uniqueRatio * 20 : 0) - personRatio * 60 - serialRatio * 40;
+          let tagScore = orgRatio * 90 + (vals.length >= 4 && uniqueRatio <= 0.65 && serialRatio < 0.5 && idRatio < 0.5 && noiseRatio < 0.5 ? 50 : 0) - idRatio * 80 - serialRatio * 80 - noiseRatio * 80;
+          let bonusScore = (bonusRangeIntCnt / total) * 80 - (uniqueRatio > 0.8 && vals.length >= 4 ? 70 : 0);
+
+          colStats.push({ c, empty: false, nameScore, idScore, tagScore, bonusScore });
+        }
+
+        if (nameCol === -1) {
+          const candidates = colStats
+            .filter(s => !s.empty && !serialCols.has(s.c) && !ignoredCols.has(s.c) && s.c !== idCol && s.c !== tagCol && s.c !== bonusCol)
+            .sort((a, b) => b.nameScore - a.nameScore);
+          if (candidates.length > 0 && candidates[0].nameScore > 15) {
+            nameCol = candidates[0].c;
+          } else {
+            // 保底：挑選第一個非序號、非學號的文字欄
+            const fallback = colStats.filter(s => !s.empty && !serialCols.has(s.c) && s.c !== idCol).sort((a, b) => b.nameScore - a.nameScore)[0];
+            if (fallback) nameCol = fallback.c;
+          }
+        }
+
+        if (idCol === -1) {
+          const idCand = colStats
+            .filter(s => !s.empty && s.c !== nameCol && s.c !== tagCol && s.c !== bonusCol && !ignoredCols.has(s.c))
+            .sort((a, b) => b.idScore - a.idScore)[0];
+          if (idCand && idCand.idScore >= 45) idCol = idCand.c;
+        }
+
+        if (tagCol === -1) {
+          const tagCand = colStats
+            .filter(s => !s.empty && s.c !== nameCol && s.c !== idCol && s.c !== bonusCol && !serialCols.has(s.c) && !ignoredCols.has(s.c))
+            .sort((a, b) => b.tagScore - a.tagScore)[0];
+          if (tagCand && tagCand.tagScore >= 25) tagCol = tagCand.c;
+        }
+
+        if (bonusCol === -1 && maxCols >= 3) {
+          const bCand = colStats
+            .filter(s => !s.empty && s.c !== nameCol && s.c !== idCol && s.c !== tagCol && !serialCols.has(s.c) && !ignoredCols.has(s.c))
+            .sort((a, b) => b.bonusScore - a.bonusScore)[0];
+          if (bCand && bCand.bonusScore >= 55) bonusCol = bCand.c;
+        }
+      }
+
+      const colLabels = [];
+      for (let c = 0; c < maxCols; c++) {
+        const hdrText = bestHeaderRow >= 0 ? String(rows2D[bestHeaderRow]?.[c] || '').trim() : '';
+        colLabels.push(hdrText ? `第 ${c + 1} 欄：${hdrText}` : `第 ${c + 1} 欄`);
+      }
+
+      const confidence = (nameCol >= 0 && (bestHeaderRow >= 0 || sampleRows.length > 0)) ? 'high' : 'low';
+      return { startDataRow, headerRowIdx: bestHeaderRow, nameCol, idCol, tagCol, bonusCol, confidence, colLabels };
+    }
+
+    // 依據欄位對應表從 rows2D 擷取乾淨成員陣列
+    function extractMembersFrom2DWithMapping(rows2D, mapping, defaultTag, batchId) {
+      const members = [];
+      if (!Array.isArray(rows2D) || mapping.nameCol < 0) return members;
+
+      const maxCols = rows2D.reduce((m, r) => Math.max(m, Array.isArray(r) ? r.length : 0), 0);
+      const isSingleCol = maxCols <= 1;
+      const startRow = Math.max(0, Number(mapping.startDataRow) || 0);
+
+      for (let r = startRow; r < rows2D.length; r++) {
+        const row = rows2D[r];
+        if (!Array.isArray(row)) continue;
+
+        const rawNameCell = row[mapping.nameCol];
+        const name = cleanExtractedPersonName(rawNameCell, isSingleCol);
+        if (!name) continue;
+
+        // 自動跳過跨頁重複出現的標題列或表格底部合計列
+        const normName = name.replace(/\s+/g, '').toLowerCase();
+        if (/^(姓名|學生姓名|學員姓名|中文姓名|真實姓名|name|fullname|合計|總計|小計|共計|人數統計|備註|簽名處)$/.test(normName)) continue;
+        if (/^(合計|總計|共計)\s*[:：]?\s*\d+/.test(normName)) continue;
+        // 避免沒有標題列時誤把純編號抓成名字
+        if (!isSingleCol && /^\d+$/.test(name)) continue;
+
+        const studentId = mapping.idCol >= 0 ? String(row[mapping.idCol] || '').trim() : '';
+        const rawTag = mapping.tagCol >= 0 ? String(row[mapping.tagCol] || '').trim() : '';
+        const tag = rawTag || defaultTag || '本組學員';
+        const rawBonus = mapping.bonusCol >= 0 ? parseInt(String(row[mapping.bonusCol] || '').trim(), 10) : 1;
+        const bonus = Math.max(1, Math.min(10, isNaN(rawBonus) ? 1 : rawBonus));
+
+        members.push({
+          id: 'u_' + Date.now() + '_' + r + '_' + Math.random().toString(36).slice(2, 5),
+          studentId,
+          name,
+          tag,
+          bonus,
+          isWinner: false,
+          isPicked: false,
+          importBatchId: batchId || ''
+        });
+      }
+      return members;
+    }
+
+    // 執行智慧二維名單匯入，並顯示對應欄位橫幅（若無法確定姓名欄則自動彈出欄位選擇器）
+    function executeSmartRosterImport(rows2D, replaceAll = false, clearTextarea = false) {
+      ensurePickerGroupsIntegrity();
       const targetGrp = currentSharedGroupId === 'ALL' ? appState.pickerGroups[0] : getCurrentPickerGroupObj();
       if (!targetGrp) return;
 
-      const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-      const parsedMembers = [];
+      const mapping = smartAnalyzeRoster2D(rows2D);
+      const batchId = 'batch_' + Date.now();
 
-      lines.forEach((line, idx) => {
-        const parts = line.split(/[,\t，]+/).map(s => s.trim()).filter(Boolean);
-        if (parts.length === 0) return;
-        if (idx === 0 && /姓名|學號|name/i.test(line)) return;
+      lastUploadedRosterState = {
+        rows2D,
+        targetGroupId: targetGrp.id,
+        lastBatchId: batchId,
+        mapping
+      };
 
-        let studentId = '';
-        let name = '';
-        let tag = targetGrp.name;
-        let bonus = 1;
+      const parsedMembers = extractMembersFrom2DWithMapping(rows2D, mapping, targetGrp.name, batchId);
 
-        if (parts.length === 1) {
-          name = parts[0];
-        } else if (/^[A-Za-z0-9\-_]{3,}$/.test(parts[0]) && !/^[\u4e00-\u9fa5]+$/.test(parts[0])) {
-          studentId = parts[0];
-          name = parts[1] || parts[0];
-          tag = parts[2] || targetGrp.name;
-          bonus = parseInt(parts[3], 10) || 1;
-        } else {
-          name = parts[0];
-          tag = parts[1] || targetGrp.name;
-          bonus = parseInt(parts[2], 10) || 1;
-        }
-
-        if (name) {
-          parsedMembers.push({
-            id: 'u_' + Date.now() + '_' + idx + '_' + Math.random().toString(36).slice(2, 5),
-            studentId,
-            name,
-            tag,
-            bonus: Math.max(1, Math.min(10, bonus)),
-            isWinner: false,
-            isPicked: false
-          });
-        }
-      });
-
+      // 若有多欄但抓不到有效姓名，自動開啟「手動指定欄位視窗」讓老師一鍵點選！
       if (parsedMembers.length === 0) {
-        showToast('未解析到有效姓名，請確認格式', 'error');
+        if (rows2D.length > 0 && rows2D[0].length > 1) {
+          openColumnMapperModal();
+          showToast('請在視窗中指定哪一欄是「姓名」欄位！', 'info');
+        } else {
+          showToast('未解析到有效姓名，請確認名單內容是否正確', 'error');
+        }
         return;
       }
 
@@ -4347,10 +4744,163 @@ service cloud.firestore {
         targetGrp.members = [...(targetGrp.members || []), ...parsedMembers];
       }
 
-      document.getElementById('batchPasteInput').value = '';
+      if (clearTextarea) {
+        const ta = document.getElementById('batchPasteInput');
+        if (ta) ta.value = '';
+      }
+
+      // 更新匯入欄位對應提示橫幅
+      const banner = document.getElementById('rosterMappingBanner');
+      const summaryEl = document.getElementById('rosterMappingSummaryText');
+      if (banner && summaryEl) {
+        const nameLbl = mapping.colLabels[mapping.nameCol] || `第 ${mapping.nameCol + 1} 欄`;
+        const idLbl = mapping.idCol >= 0 ? (mapping.colLabels[mapping.idCol] || `第 ${mapping.idCol + 1} 欄`) : '無';
+        const tagLbl = mapping.tagCol >= 0 ? (mapping.colLabels[mapping.tagCol] || `第 ${mapping.tagCol + 1} 欄`) : '預設群組名';
+        const previewNames = parsedMembers.slice(0, 3).map(m => m.name).join('、');
+        summaryEl.innerHTML = `✅ 已匯入 <strong>${parsedMembers.length}</strong> 人（範例：<span class="text-white">${previewNames}</span>）<br><span class="text-[11px] text-slate-300 font-normal">自動識別 ➔ 姓名：【${nameLbl}】｜學號：【${idLbl}】｜組別：【${tagLbl}】</span>`;
+        banner.classList.remove('hidden');
+      }
+
       syncCageBallsWithPool();
       saveState(true);
-      showToast(`🎉 已成功匯入 ${parsedMembers.length} 位成員至「${targetGrp.name}」！`, 'success');
+      showToast(`🎉 成功匯入 ${parsedMembers.length} 位成員至「${targetGrp.name}」！`, 'success');
+    }
+
+    function openColumnMapperModal() {
+      const rows2D = lastUploadedRosterState.rows2D;
+      if (!Array.isArray(rows2D) || rows2D.length === 0) {
+        showToast('請先上傳名單檔案或在文字框貼上內容', 'info');
+        return;
+      }
+      const mapping = lastUploadedRosterState.mapping || smartAnalyzeRoster2D(rows2D);
+      const maxCols = rows2D.reduce((m, r) => Math.max(m, Array.isArray(r) ? r.length : 0), 0);
+
+      // 建立起始列下拉選單 (前 12 列)
+      const startSel = document.getElementById('mapperStartRowSelect');
+      const rowLimit = Math.min(12, rows2D.length);
+      startSel.innerHTML = Array.from({ length: rowLimit }, (_, r) => {
+        const sample = (rows2D[r] || []).filter(Boolean).slice(0, 3).join(' | ').slice(0, 28);
+        return `<option value="${r}" ${r === mapping.startDataRow ? 'selected' : ''}>從第 ${r + 1} 列開始 (${sample || '空白列'})</option>`;
+      }).join('');
+
+      // 建立各欄位預覽選項
+      const buildColOptions = (selectedIdx, allowNone) => {
+        const opts = [];
+        if (allowNone) {
+          opts.push(`<option value="-1" ${selectedIdx < 0 ? 'selected' : ''}>-- 不匯入此欄位 --</option>`);
+        }
+        for (let c = 0; c < maxCols; c++) {
+          const hdr = mapping.headerRowIdx >= 0 ? String(rows2D[mapping.headerRowIdx]?.[c] || '').trim() : '';
+          const sampleVals = rows2D
+            .slice(mapping.startDataRow, mapping.startDataRow + 5)
+            .map(r => String(r?.[c] || '').trim())
+            .filter(Boolean)
+            .slice(0, 2)
+            .join('、');
+          const label = `第 ${c + 1} 欄${hdr ? ` [${hdr}]` : ''}${sampleVals ? ` (例：${sampleVals.slice(0, 14)})` : ''}`;
+          opts.push(`<option value="${c}" ${c === selectedIdx ? 'selected' : ''}>${label}</option>`);
+        }
+        return opts.join('');
+      };
+
+      document.getElementById('mapperNameColSelect').innerHTML = buildColOptions(Math.max(0, mapping.nameCol), false);
+      document.getElementById('mapperIdColSelect').innerHTML = buildColOptions(mapping.idCol, true);
+      document.getElementById('mapperTagColSelect').innerHTML = buildColOptions(mapping.tagCol, true);
+      document.getElementById('mapperReplaceGroupChk').checked = false;
+
+      updateColumnMapperPreview();
+      document.getElementById('columnMapperModal').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeColumnMapperModal() {
+      document.getElementById('columnMapperModal').classList.add('hidden');
+    }
+
+    function updateColumnMapperPreview() {
+      const rows2D = lastUploadedRosterState.rows2D || [];
+      const customMap = {
+        startDataRow: parseInt(document.getElementById('mapperStartRowSelect').value, 10) || 0,
+        nameCol: parseInt(document.getElementById('mapperNameColSelect').value, 10),
+        idCol: parseInt(document.getElementById('mapperIdColSelect').value, 10),
+        tagCol: parseInt(document.getElementById('mapperTagColSelect').value, 10),
+        bonusCol: lastUploadedRosterState.mapping?.bonusCol ?? -1
+      };
+      const targetGrp = appState.pickerGroups.find(g => g.id === lastUploadedRosterState.targetGroupId) || getCurrentPickerGroupObj();
+      const previewList = extractMembersFrom2DWithMapping(rows2D, customMap, targetGrp ? targetGrp.name : '本組學員', '');
+
+      document.getElementById('mapperValidCountBadge').textContent = `預計可匯入 ${previewList.length} 人`;
+      const tbody = document.getElementById('mapperPreviewTbody');
+      if (previewList.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="3" class="py-3 text-center text-rose-400">此欄位目前沒有擷取到有效姓名，請嘗試切換其他欄位</td></tr>`;
+      } else {
+        tbody.innerHTML = previewList.slice(0, 5).map(m => `
+          <tr>
+            <td class="py-1.5 px-2 font-mono text-indigo-300">${m.studentId || '-'}</td>
+            <td class="py-1.5 px-2 font-black text-amber-300">${m.name}</td>
+            <td class="py-1.5 px-2 text-slate-300">${m.tag || '-'}</td>
+          </tr>
+        `).join('');
+      }
+    }
+
+    function applyManualColumnMapping() {
+      const rows2D = lastUploadedRosterState.rows2D || [];
+      if (rows2D.length === 0) return;
+
+      const customMap = {
+        ...(lastUploadedRosterState.mapping || {}),
+        startDataRow: parseInt(document.getElementById('mapperStartRowSelect').value, 10) || 0,
+        nameCol: parseInt(document.getElementById('mapperNameColSelect').value, 10),
+        idCol: parseInt(document.getElementById('mapperIdColSelect').value, 10),
+        tagCol: parseInt(document.getElementById('mapperTagColSelect').value, 10)
+      };
+      const replaceGroup = document.getElementById('mapperReplaceGroupChk')?.checked ?? false;
+      const targetGrp = appState.pickerGroups.find(g => g.id === lastUploadedRosterState.targetGroupId) || getCurrentPickerGroupObj();
+      if (!targetGrp) return;
+
+      const newBatchId = 'batch_' + Date.now();
+      const newMembers = extractMembersFrom2DWithMapping(rows2D, customMap, targetGrp.name, newBatchId);
+      if (newMembers.length === 0) {
+        showToast('所選姓名欄位無有效資料，請重新選擇欄位', 'error');
+        return;
+      }
+
+      if (replaceGroup) {
+        targetGrp.members = newMembers;
+      } else {
+        // 自動移除剛才同一份檔案自動匯入的舊批次，避免手動重調欄位時名單重複！
+        const prevBatch = lastUploadedRosterState.lastBatchId;
+        const cleanedExisting = prevBatch
+          ? (targetGrp.members || []).filter(m => m.importBatchId !== prevBatch)
+          : (targetGrp.members || []);
+        targetGrp.members = [...cleanedExisting, ...newMembers];
+      }
+
+      lastUploadedRosterState.lastBatchId = newBatchId;
+      lastUploadedRosterState.mapping = customMap;
+
+      const summaryEl = document.getElementById('rosterMappingSummaryText');
+      if (summaryEl) {
+        const previewNames = newMembers.slice(0, 3).map(m => m.name).join('、');
+        summaryEl.innerHTML = `✅ 已依指定欄位重新匯入 <strong>${newMembers.length}</strong> 人（範例：<span class="text-white">${previewNames}</span>）`;
+        document.getElementById('rosterMappingBanner')?.classList.remove('hidden');
+      }
+
+      closeColumnMapperModal();
+      syncCageBallsWithPool();
+      saveState(true);
+      showToast(`✅ 已成功套用指定欄位，共匯入 ${newMembers.length} 位成員！`, 'success');
+    }
+
+    function importBatchParticipants(replaceAll = false) {
+      const raw = document.getElementById('batchPasteInput').value.trim();
+      if (!raw) {
+        showToast('請先在文字框貼上名單內容或上傳檔案', 'error');
+        return;
+      }
+      const rows2D = parseDelimitedTextTo2D(raw);
+      executeSmartRosterImport(rows2D, replaceAll, true);
     }
 
     async function handleManagerMultiFileUpload(event) {
@@ -4363,39 +4913,87 @@ service cloud.firestore {
       try {
         const ext = file.name.split('.').pop().toLowerCase();
         if (ext === 'csv' || ext === 'txt') {
-          if (statusText) statusText.textContent = '正在讀取 CSV / 文字檔名單...';
-          const text = await file.text();
-          document.getElementById('batchPasteInput').value = text;
-          importBatchParticipants(false);
+          if (statusText) statusText.textContent = '正在讀取 CSV / 文字檔（自動偵測 UTF-8 / Big5 編碼）...';
+          const buf = await file.arrayBuffer();
+          let text = new TextDecoder('utf-8', { fatal: false }).decode(buf);
+          // 若台灣 Excel 匯出之 Big5 編碼 CSV 出現亂碼字元，自動切換 Big5 解碼！
+          if (text.includes('\uFFFD')) {
+            try {
+              const big5Text = new TextDecoder('big5').decode(buf);
+              const utf8Cjk = (text.match(/[\u4e00-\u9fa5]/g) || []).length;
+              const big5Cjk = (big5Text.match(/[\u4e00-\u9fa5]/g) || []).length;
+              if (!big5Text.includes('\uFFFD') || big5Cjk > utf8Cjk) {
+                text = big5Text;
+              }
+            } catch (encErr) {}
+          }
+          const rows2D = parseDelimitedTextTo2D(text);
+          executeSmartRosterImport(rows2D, false, false);
         } else if ((ext === 'xlsx' || ext === 'xls') && window.XLSX) {
-          if (statusText) statusText.textContent = '正在解析 Excel 試算表名單...';
+          if (statusText) statusText.textContent = '正在智慧解析 Excel 試算表欄位與姓名...';
           const buf = await file.arrayBuffer();
           const wb = XLSX.read(buf, { type: 'array' });
-          const sheet = wb.Sheets[wb.SheetNames[0]];
-          const csv = XLSX.utils.sheet_to_csv(sheet);
-          document.getElementById('batchPasteInput').value = csv;
-          importBatchParticipants(false);
+          // 自動挑選第一個含有資料的工作表
+          let rows2D = [];
+          for (const sheetName of wb.SheetNames) {
+            const sheet = wb.Sheets[sheetName];
+            const arr = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
+            if (Array.isArray(arr) && arr.some(r => Array.isArray(r) && r.some(c => String(c || '').trim() !== ''))) {
+              rows2D = arr.map(r => (Array.isArray(r) ? r.map(c => String(c ?? '').trim()) : []));
+              break;
+            }
+          }
+          executeSmartRosterImport(rows2D, false, false);
         } else if (ext === 'pdf' && window.pdfjsLib) {
-          if (statusText) statusText.textContent = '正在從 PDF 檔案擷取學號與姓名...';
+          if (statusText) statusText.textContent = '正在依 PDF 表格座標重建學號與姓名欄位...';
           const buf = await file.arrayBuffer();
           const pdf = await window.pdfjsLib.getDocument({ data: buf }).promise;
-          let fullText = '';
+          const reconstructedRows = [];
+
           for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
             const page = await pdf.getPage(pageNum);
             const content = await page.getTextContent();
-            const pageLines = content.items.map(it => it.str).join(' ');
-            fullText += pageLines + '\n';
+            const rowBuckets = [];
+
+            content.items.forEach(it => {
+              const str = String(it.str || '').trim();
+              if (!str) return;
+              const x = it.transform ? it.transform[4] : 0;
+              const y = it.transform ? it.transform[5] : 0;
+              const w = it.width || (str.length * 8);
+              let bucket = rowBuckets.find(b => Math.abs(b.y - y) <= 4.5);
+              if (!bucket) {
+                bucket = { y, items: [] };
+                rowBuckets.push(bucket);
+              }
+              bucket.items.push({ x, w, str });
+            });
+
+            // 由上而下排序每一列，列內由左至右排序並合併同格文字
+            rowBuckets.sort((a, b) => b.y - a.y);
+            rowBuckets.forEach(b => {
+              b.items.sort((a, c) => a.x - c.x);
+              const cells = [];
+              let lastEnd = null;
+              b.items.forEach(item => {
+                if (lastEnd !== null && (item.x - lastEnd) < 6 && cells.length > 0) {
+                  cells[cells.length - 1] += item.str;
+                } else {
+                  cells.push(item.str);
+                }
+                lastEnd = item.x + item.w;
+              });
+              if (cells.length > 0) reconstructedRows.push(cells);
+            });
           }
-          if (customGeminiKey && fullText.trim()) {
-            if (statusText) statusText.textContent = '正在使用 Gemini AI 智慧結構化整理 PDF 名單...';
-            const cleaned = await callGeminiAPI(
-              `請從以下 PDF 文字中擷取出參加者或學生的名單，每行輸出格式為「學號或編號, 姓名, 組別或部門」（若無編號或部門可省略，但每行務必包含姓名，不要輸出任何說明文字）：\n${fullText.slice(0, 12000)}`
-            );
-            document.getElementById('batchPasteInput').value = (cleaned || fullText).trim();
+
+          if (reconstructedRows.length > 0) {
+            executeSmartRosterImport(reconstructedRows, false, false);
+          } else if (customGeminiKey) {
+            showToast('此 PDF 為掃描影像檔，建議截圖以照片格式上傳由 AI 視覺辨識', 'info');
           } else {
-            document.getElementById('batchPasteInput').value = fullText.trim();
+            showToast('未從 PDF 擷取到文字內容', 'error');
           }
-          importBatchParticipants(false);
         } else if (file.type.startsWith('image/')) {
           if (!customGeminiKey) {
             showToast('圖片視覺辨識名單需先至右上角「設定」填入 Gemini API Key 喔！', 'error');
@@ -4415,8 +5013,8 @@ service cloud.firestore {
             { mimeType: file.type || 'image/png', data: base64Data }
           );
           if (aiLines && aiLines.trim()) {
-            document.getElementById('batchPasteInput').value = aiLines.trim();
-            importBatchParticipants(false);
+            const rows2D = parseDelimitedTextTo2D(aiLines.trim());
+            executeSmartRosterImport(rows2D, false, false);
           } else {
             showToast('未能從圖片中辨識出有效姓名', 'error');
           }
