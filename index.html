@@ -913,7 +913,7 @@
               <h3 class="font-bold text-sm flex items-center gap-2 text-amber-300">
                 <i data-lucide="wand-2" class="w-4 h-4"></i> Gemini AI 智慧課堂獎勵 / 活動獎池精算師
               </h3>
-              <span class="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded font-mono">gemini-3.8-flash</span>
+              <span class="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded font-mono">gemini-4-hydrogen</span>
             </div>
             <textarea id="aiPrizePrompt" rows="3" placeholder="輸入課堂或活動需求，例如：我們是大學數位行銷課堂互動（或企業尾牙），40 位學員參加，請幫我規劃 5 個階層的課堂加分特權、精美禮品與權重配置。" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"></textarea>
             <button onclick="generatePrizesWithAI()" id="btnAiPrizes" class="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 transition">
@@ -1322,7 +1322,7 @@
       <div class="bg-indigo-950/50 border border-indigo-500/30 rounded-2xl p-3.5 text-left">
         <div class="flex items-center justify-between text-[11px] text-indigo-300 font-bold mb-1">
           <span class="flex items-center gap-1"><i data-lucide="bot" class="w-3.5 h-3.5"></i> AI 現場氣氛主持人播報</span>
-          <span id="aiModelUsedTag" class="text-[10px] text-slate-400 font-mono">gemini-3.8-flash</span>
+          <span id="aiModelUsedTag" class="text-[10px] text-slate-400 font-mono">gemini-4-hydrogen</span>
         </div>
         <p id="modalAiMessage" class="text-xs text-slate-200 leading-relaxed italic">正在為得獎者生成專屬幽默賀詞...</p>
       </div>
@@ -2626,7 +2626,7 @@ service cloud.firestore {
     // Gemini API 通用呼叫輔助器 (含指數退避重試與預設金鑰環境相容)
     async function callGeminiAPI(userPrompt, systemPrompt = '', jsonSchema = null, inlineImage = null) {
       const apiKey = (customGeminiKey || '').trim();
-      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-4-hydrogen:generateContent?key=${apiKey}`;
 
       const parts = [{ text: userPrompt }];
       if (inlineImage && inlineImage.data && inlineImage.mimeType) {
